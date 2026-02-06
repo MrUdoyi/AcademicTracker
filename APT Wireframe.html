@@ -1,0 +1,1059 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>APT Wireframes - v1.1</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #f5f5f5;
+      }
+      .wireframe-box {
+        border: 2px solid #333;
+        background: white;
+      }
+      .wireframe-element {
+        border: 1px solid #999;
+        background: #f9f9f9;
+      }
+      /* Pattern for text placeholders */
+      .wireframe-text {
+        background: repeating-linear-gradient(
+          90deg,
+          #ddd,
+          #ddd 10px,
+          #eee 10px,
+          #eee 20px
+        );
+        height: 12px;
+      }
+      .wireframe-button {
+        border: 2px solid #333;
+        background: #e0e0e0;
+        transition: all 0.2s;
+      }
+      .wireframe-button:hover {
+        background: #d0d0d0;
+        transform: translateY(-1px);
+      }
+      .wireframe-button:active {
+        transform: translateY(0);
+        background: #ccc;
+      }
+      .wireframe-input {
+        border: 2px solid #999;
+        background: white;
+      }
+
+      /* Modal Overlay */
+      .modal-overlay {
+        background-color: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(2px);
+      }
+    </style>
+  </head>
+  <body class="p-4 min-h-screen flex flex-col">
+    <div class="max-w-7xl mx-auto w-full mb-6 sticky top-0 z-50">
+      <div
+        class="bg-gray-900 rounded-lg shadow-lg p-3 flex gap-2 flex-wrap items-center justify-center"
+      >
+        <span
+          class="text-gray-400 text-xs font-bold mr-2 uppercase tracking-wider"
+          >Wireframe Nav:</span
+        >
+        <button
+          onclick="showScreen('login')"
+          id="nav-login"
+          class="nav-btn px-3 py-1 rounded bg-gray-700 text-white text-sm hover:bg-gray-600 transition-colors"
+        >
+          1. Login
+        </button>
+        <button
+          onclick="showScreen('register')"
+          id="nav-register"
+          class="nav-btn px-3 py-1 rounded bg-gray-700 text-white text-sm hover:bg-gray-600 transition-colors"
+        >
+          1b. Register
+        </button>
+        <button
+          onclick="showScreen('profile')"
+          id="nav-profile"
+          class="nav-btn px-3 py-1 rounded bg-gray-700 text-white text-sm hover:bg-gray-600 transition-colors"
+        >
+          2. Profile
+        </button>
+        <button
+          onclick="showScreen('dashboard')"
+          id="nav-dashboard"
+          class="nav-btn px-3 py-1 rounded bg-gray-700 text-white text-sm hover:bg-gray-600 transition-colors"
+        >
+          3. Dashboard
+        </button>
+        <button
+          onclick="showScreen('courses')"
+          id="nav-courses"
+          class="nav-btn px-3 py-1 rounded bg-gray-700 text-white text-sm hover:bg-gray-600 transition-colors"
+        >
+          4. Courses
+        </button>
+        <button
+          onclick="showScreen('analysis')"
+          id="nav-analysis"
+          class="nav-btn px-3 py-1 rounded bg-gray-700 text-white text-sm hover:bg-gray-600 transition-colors"
+        >
+          5. Analysis
+        </button>
+      </div>
+    </div>
+
+    <div id="screen-login" class="screen max-w-md mx-auto w-full">
+      <div class="wireframe-box rounded-lg p-8 shadow-xl relative">
+        <div
+          class="absolute top-0 left-0 bg-yellow-300 text-xs font-bold px-2 py-1 border-r-2 border-b-2 border-gray-800"
+        >
+          LOGIN VIEW
+        </div>
+        <div class="text-center mb-8 mt-4">
+          <div
+            class="w-16 h-16 wireframe-element rounded-full mx-auto mb-4 flex items-center justify-center text-2xl"
+          >
+            🎓
+          </div>
+          <h1 class="text-2xl font-bold text-gray-800">
+            Academic Progress Tracker
+          </h1>
+          <p class="text-gray-600 text-sm mt-2">
+            Track your CGPA and academic journey
+          </p>
+        </div>
+
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2"
+              >Email Address</label
+            >
+            <div class="wireframe-input rounded p-3">
+              <span class="text-gray-400">student@university.edu</span>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2"
+              >Password</label
+            >
+            <div class="wireframe-input rounded p-3">
+              <span class="text-gray-400">••••••••</span>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between text-sm">
+            <label class="flex items-center">
+              <input type="checkbox" class="mr-2 rounded border-gray-400" />
+              <span class="text-gray-600">Remember me</span>
+            </label>
+            <a href="#" class="text-gray-600 hover:underline"
+              >Forgot password?</a
+            >
+          </div>
+
+          <button
+            onclick="showScreen('dashboard')"
+            class="w-full wireframe-button rounded-lg p-3 font-semibold text-gray-800 hover:bg-gray-300"
+          >
+            LOG IN
+          </button>
+
+          <div class="text-center text-sm text-gray-600">
+            <p>
+              Don't have an account?
+              <a
+                href="javascript:showScreen('register')"
+                class="font-semibold hover:underline text-blue-700"
+                >Sign up</a
+              >
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="screen-register" class="screen max-w-md mx-auto w-full hidden">
+      <div class="wireframe-box rounded-lg p-8 shadow-xl relative">
+        <div
+          class="absolute top-0 left-0 bg-yellow-300 text-xs font-bold px-2 py-1 border-r-2 border-b-2 border-gray-800"
+        >
+          REGISTER VIEW
+        </div>
+
+        <div class="text-center mb-6 mt-4">
+          <h1 class="text-2xl font-bold text-gray-800">Create Account</h1>
+          <p class="text-gray-600 text-sm mt-2">
+            Start your journey to better grades
+          </p>
+        </div>
+
+        <div class="space-y-4">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >First Name</label
+              >
+              <div class="wireframe-input rounded p-2">
+                <span class="text-gray-400 text-sm">John</span>
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >Last Name</label
+              >
+              <div class="wireframe-input rounded p-2">
+                <span class="text-gray-400 text-sm">Doe</span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Email Address</label
+            >
+            <div class="wireframe-input rounded p-2">
+              <span class="text-gray-400 text-sm">student@university.edu</span>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Password</label
+            >
+            <div class="wireframe-input rounded p-2">
+              <span class="text-gray-400 text-sm">••••••••</span>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Confirm Password</label
+            >
+            <div class="wireframe-input rounded p-2">
+              <span class="text-gray-400 text-sm">••••••••</span>
+            </div>
+          </div>
+
+          <button
+            onclick="showScreen('profile')"
+            class="w-full wireframe-button rounded-lg p-3 font-semibold text-gray-800 mt-2 hover:bg-gray-300"
+          >
+            CREATE ACCOUNT
+          </button>
+
+          <div class="text-center text-sm text-gray-600">
+            <p>
+              Already have an account?
+              <a
+                href="javascript:showScreen('login')"
+                class="font-semibold hover:underline text-blue-700"
+                >Log in</a
+              >
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="screen-profile" class="screen hidden max-w-2xl mx-auto w-full">
+      <div class="wireframe-box rounded-lg p-8 shadow-xl relative">
+        <div
+          class="absolute top-0 left-0 bg-yellow-300 text-xs font-bold px-2 py-1 border-r-2 border-b-2 border-gray-800"
+        >
+          ONBOARDING VIEW
+        </div>
+        <div class="mb-6 mt-2">
+          <h1 class="text-2xl font-bold text-gray-800">Set Up Your Profile</h1>
+          <p class="text-gray-600 mt-2">Tell us about your academic program</p>
+        </div>
+
+        <div class="mb-8">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm text-gray-600">Step 1 of 1</span>
+            <span class="text-sm text-gray-600">100%</span>
+          </div>
+          <div
+            class="w-full bg-gray-200 rounded-full h-2 border border-gray-300"
+          >
+            <div class="bg-gray-800 h-2 rounded-full" style="width: 100%"></div>
+          </div>
+        </div>
+
+        <div class="space-y-6">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2"
+              >Degree Program *</label
+            >
+            <div class="wireframe-input rounded p-3">
+              <span class="text-gray-400"
+                >e.g., Computer Science, Engineering</span
+              >
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Grading Scale *</label
+              >
+              <div
+                class="wireframe-input rounded p-3 flex justify-between items-center"
+              >
+                <span class="text-gray-800">5.0 Scale</span>
+                <span class="text-xs">▼</span>
+              </div>
+              <p class="text-xs text-gray-500 mt-1">Choose 4.0 or 5.0</p>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Total Credits Required *</label
+              >
+              <div class="wireframe-input rounded p-3">
+                <span class="text-gray-400">120</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Enrollment Year *</label
+              >
+              <div class="wireframe-input rounded p-3">
+                <span class="text-gray-400">2024</span>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Target CGPA (Optional)</label
+              >
+              <div class="wireframe-input rounded p-3">
+                <span class="text-gray-400">4.50</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex gap-3 pt-4">
+            <button
+              onclick="showScreen('dashboard')"
+              class="flex-1 wireframe-button rounded-lg p-3 font-semibold text-gray-800 hover:bg-gray-300"
+            >
+              SAVE & CONTINUE
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="screen-dashboard" class="screen hidden max-w-7xl mx-auto w-full">
+      <div class="wireframe-box rounded-lg shadow-xl relative">
+        <div
+          class="absolute top-0 left-0 bg-yellow-300 text-xs font-bold px-2 py-1 border-r-2 border-b-2 border-gray-800 z-10"
+        >
+          DASHBOARD VIEW
+        </div>
+        <div
+          class="border-b-2 border-gray-300 p-4 flex flex-col md:flex-row items-center justify-between gap-4"
+        >
+          <div class="flex items-center gap-4">
+            <div
+              class="w-10 h-10 wireframe-element rounded-full flex items-center justify-center"
+            >
+              👤
+            </div>
+            <h1 class="text-xl font-bold text-gray-800">
+              Academic Progress Tracker
+            </h1>
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              onclick="showScreen('dashboard')"
+              class="wireframe-button px-4 py-2 rounded text-sm font-bold bg-gray-300"
+            >
+              Dashboard
+            </button>
+            <button
+              onclick="showScreen('courses')"
+              class="px-4 py-2 rounded text-sm text-gray-600 hover:bg-gray-200"
+            >
+              Courses
+            </button>
+            <button
+              onclick="showScreen('profile')"
+              class="px-4 py-2 rounded text-sm text-gray-600 hover:bg-gray-200"
+            >
+              Profile
+            </button>
+            <button
+              onclick="showScreen('login')"
+              class="ml-2 text-xs text-red-600 hover:underline"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+
+        <div class="p-6">
+          <div class="mb-6">
+            <h2 class="text-2xl font-bold text-gray-800">
+              Welcome back, Student!
+            </h2>
+            <p class="text-gray-600 mt-1">
+              Here's your academic progress overview
+            </p>
+          </div>
+
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="wireframe-box rounded-lg p-4 md:p-6 shadow bg-white">
+              <p class="text-sm text-gray-600 mb-2">Current CGPA</p>
+              <h3 class="text-3xl md:text-4xl font-bold text-gray-800">4.35</h3>
+              <p class="text-xs text-gray-500 mt-2">Out of 5.0</p>
+            </div>
+
+            <div class="wireframe-box rounded-lg p-4 md:p-6 shadow bg-white">
+              <p class="text-sm text-gray-600 mb-2">Credits Completed</p>
+              <h3 class="text-3xl md:text-4xl font-bold text-gray-800">45</h3>
+              <p class="text-xs text-gray-500 mt-2">Out of 120 total</p>
+            </div>
+
+            <div class="wireframe-box rounded-lg p-4 md:p-6 shadow bg-white">
+              <p class="text-sm text-gray-600 mb-2">Courses Completed</p>
+              <h3 class="text-3xl md:text-4xl font-bold text-gray-800">15</h3>
+              <p class="text-xs text-gray-500 mt-2">Total courses taken</p>
+            </div>
+
+            <div class="wireframe-box rounded-lg p-4 md:p-6 shadow bg-white">
+              <p class="text-sm text-gray-600 mb-2">In Progress</p>
+              <h3 class="text-3xl md:text-4xl font-bold text-gray-800">5</h3>
+              <p class="text-xs text-gray-500 mt-2">Current semester</p>
+            </div>
+          </div>
+
+          <div class="wireframe-box rounded-lg p-6 shadow mb-6">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-bold text-gray-800">Degree Progress</h3>
+              <span class="text-sm text-gray-600">37.5%</span>
+            </div>
+            <div
+              class="w-full bg-gray-200 rounded-full h-4 border border-gray-300"
+            >
+              <div
+                class="bg-gray-700 h-4 rounded-full"
+                style="width: 37.5%"
+              ></div>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">
+              45 of 120 credits completed
+            </p>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="wireframe-box rounded-lg p-6 shadow">
+              <h3 class="font-bold text-gray-800 mb-4">Semester Performance</h3>
+              <div
+                class="wireframe-element rounded h-48 md:h-64 flex items-end justify-around pb-4 px-4"
+              >
+                <div class="w-12 bg-gray-300 h-3/4 relative group">
+                  <div
+                    class="absolute -top-6 left-0 w-full text-center text-xs font-bold hidden group-hover:block"
+                  >
+                    4.0
+                  </div>
+                </div>
+                <div class="w-12 bg-gray-400 h-4/5 relative group">
+                  <div
+                    class="absolute -top-6 left-0 w-full text-center text-xs font-bold hidden group-hover:block"
+                  >
+                    4.2
+                  </div>
+                </div>
+                <div class="w-12 bg-gray-600 h-full relative group">
+                  <div
+                    class="absolute -top-6 left-0 w-full text-center text-xs font-bold hidden group-hover:block"
+                  >
+                    4.5
+                  </div>
+                </div>
+              </div>
+              <div
+                class="flex items-center justify-around mt-4 text-xs text-gray-500"
+              >
+                <span>Fall 2023</span>
+                <span>Spring 2024</span>
+                <span>Fall 2024</span>
+              </div>
+            </div>
+
+            <div class="space-y-4">
+              <div
+                class="wireframe-box rounded-lg p-6 shadow bg-blue-50 border-blue-200"
+              >
+                <div class="flex justify-between items-start mb-3">
+                  <h3 class="font-bold text-gray-800">🤖 AI Insights</h3>
+                  <span
+                    class="bg-blue-200 text-blue-800 text-xs px-2 py-1 rounded"
+                    >New</span
+                  >
+                </div>
+                <div class="space-y-2 mb-4">
+                  <div class="h-3 bg-gray-300 rounded w-full"></div>
+                  <div class="h-3 bg-gray-300 rounded w-5/6"></div>
+                  <div class="h-3 bg-gray-300 rounded w-4/6"></div>
+                </div>
+                <button
+                  onclick="showScreen('analysis')"
+                  class="wireframe-button px-4 py-2 rounded text-sm font-medium w-full hover:bg-white"
+                >
+                  VIEW FULL ANALYSIS
+                </button>
+              </div>
+
+              <div class="wireframe-box rounded-lg p-6 shadow">
+                <h3 class="font-bold text-gray-800 mb-3">Quick Actions</h3>
+                <div class="space-y-2">
+                  <button
+                    onclick="toggleModal('addCourseModal')"
+                    class="w-full wireframe-button rounded p-3 text-left font-medium hover:bg-gray-300 flex items-center gap-2"
+                  >
+                    <span>➕</span> Add New Course
+                  </button>
+                  <button
+                    onclick="showScreen('analysis')"
+                    class="w-full wireframe-button rounded p-3 text-left font-medium hover:bg-gray-300 flex items-center gap-2"
+                  >
+                    <span>📊</span> Generate Analysis
+                  </button>
+                  <button
+                    class="w-full wireframe-button rounded p-3 text-left font-medium hover:bg-gray-300 flex items-center gap-2"
+                  >
+                    <span>📄</span> Export Transcript
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="screen-courses" class="screen hidden max-w-7xl mx-auto w-full">
+      <div class="wireframe-box rounded-lg shadow-xl relative">
+        <div
+          class="absolute top-0 left-0 bg-yellow-300 text-xs font-bold px-2 py-1 border-r-2 border-b-2 border-gray-800 z-10"
+        >
+          COURSE MANAGER
+        </div>
+        <div class="border-b-2 border-gray-300 p-6">
+          <div
+            class="flex flex-col md:flex-row items-center justify-between mb-4 gap-4"
+          >
+            <div>
+              <div class="flex items-center gap-2">
+                <button
+                  onclick="showScreen('dashboard')"
+                  class="text-sm text-gray-500 hover:underline"
+                >
+                  ← Back to Dashboard
+                </button>
+              </div>
+              <h1 class="text-2xl font-bold text-gray-800 mt-1">My Courses</h1>
+              <p class="text-gray-600">Manage your course list and grades</p>
+            </div>
+            <button
+              onclick="toggleModal('addCourseModal')"
+              class="wireframe-button px-6 py-3 rounded-lg font-semibold bg-gray-800 text-white hover:bg-gray-700 border-gray-900"
+            >
+              + ADD NEW COURSE
+            </button>
+          </div>
+
+          <div class="flex gap-3 flex-wrap">
+            <button
+              class="wireframe-button px-4 py-2 rounded text-sm bg-gray-300 font-bold"
+            >
+              All Courses (20)
+            </button>
+            <button
+              class="px-4 py-2 rounded text-sm text-gray-600 bg-gray-100 border border-gray-300 hover:bg-gray-200"
+            >
+              Completed (15)
+            </button>
+            <button
+              class="px-4 py-2 rounded text-sm text-gray-600 bg-gray-100 border border-gray-300 hover:bg-gray-200"
+            >
+              In Progress (5)
+            </button>
+
+            <div
+              class="ml-auto wireframe-input rounded px-4 py-2 text-sm w-full md:w-64 flex items-center bg-white"
+            >
+              <span class="mr-2">🔍</span> Search courses...
+            </div>
+          </div>
+        </div>
+
+        <div class="p-6">
+          <div class="space-y-3">
+            <div
+              class="wireframe-box rounded-lg p-4 shadow hover:shadow-md transition-shadow bg-white"
+            >
+              <div
+                class="flex flex-col md:flex-row items-start justify-between gap-4"
+              >
+                <div class="flex-1">
+                  <div class="flex items-center gap-3 mb-2">
+                    <span
+                      class="wireframe-button px-3 py-1 rounded text-xs font-bold"
+                      >CS101</span
+                    >
+                    <h3 class="font-bold text-gray-800">
+                      Introduction to Programming
+                    </h3>
+                    <span
+                      class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded border border-green-200"
+                      >Completed</span
+                    >
+                  </div>
+                  <div class="flex items-center gap-6 text-sm text-gray-600">
+                    <span>📚 3 Credits</span>
+                    <span>📅 Fall 2024</span>
+                    <span class="font-bold text-gray-800">Grade: A (5.0)</span>
+                  </div>
+                </div>
+                <div class="flex gap-2 w-full md:w-auto">
+                  <button
+                    onclick="toggleModal('addCourseModal')"
+                    class="wireframe-button px-3 py-1 rounded text-xs flex-1 md:flex-none"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    class="wireframe-button px-3 py-1 rounded text-xs flex-1 md:flex-none text-red-600 border-red-600 hover:bg-red-50"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div
+              class="wireframe-box rounded-lg p-4 shadow hover:shadow-md transition-shadow bg-white"
+            >
+              <div
+                class="flex flex-col md:flex-row items-start justify-between gap-4"
+              >
+                <div class="flex-1">
+                  <div class="flex items-center gap-3 mb-2">
+                    <span
+                      class="wireframe-button px-3 py-1 rounded text-xs font-bold"
+                      >MATH201</span
+                    >
+                    <h3 class="font-bold text-gray-800">Calculus II</h3>
+                    <span
+                      class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded border border-blue-200"
+                      >In Progress</span
+                    >
+                  </div>
+                  <div class="flex items-center gap-6 text-sm text-gray-600">
+                    <span>📚 4 Credits</span>
+                    <span>📅 Spring 2024</span>
+                    <span class="text-gray-500">Grade: --</span>
+                  </div>
+                </div>
+                <div class="flex gap-2 w-full md:w-auto">
+                  <button
+                    onclick="toggleModal('addCourseModal')"
+                    class="wireframe-button px-3 py-1 rounded text-xs flex-1 md:flex-none"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    class="wireframe-button px-3 py-1 rounded text-xs flex-1 md:flex-none text-red-600 border-red-600 hover:bg-red-50"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div
+              class="wireframe-box rounded-lg p-4 shadow hover:shadow-md transition-shadow bg-white"
+            >
+              <div
+                class="flex flex-col md:flex-row items-start justify-between gap-4"
+              >
+                <div class="flex-1">
+                  <div class="flex items-center gap-3 mb-2">
+                    <span
+                      class="wireframe-button px-3 py-1 rounded text-xs font-bold"
+                      >ENG102</span
+                    >
+                    <h3 class="font-bold text-gray-800">Technical Writing</h3>
+                    <span
+                      class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded border border-green-200"
+                      >Completed</span
+                    >
+                  </div>
+                  <div class="flex items-center gap-6 text-sm text-gray-600">
+                    <span>📚 3 Credits</span>
+                    <span>📅 Fall 2024</span>
+                    <span class="font-bold text-gray-800">Grade: B (4.0)</span>
+                  </div>
+                </div>
+                <div class="flex gap-2 w-full md:w-auto">
+                  <button
+                    onclick="toggleModal('addCourseModal')"
+                    class="wireframe-button px-3 py-1 rounded text-xs flex-1 md:flex-none"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    class="wireframe-button px-3 py-1 rounded text-xs flex-1 md:flex-none text-red-600 border-red-600 hover:bg-red-50"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div
+              class="text-center py-8 text-gray-500 border-2 border-dashed border-gray-400 rounded-lg bg-gray-50"
+            >
+              <p class="font-bold">+ 17 more courses...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="screen-analysis" class="screen hidden max-w-7xl mx-auto w-full">
+      <div class="wireframe-box rounded-lg shadow-xl relative">
+        <div
+          class="absolute top-0 left-0 bg-yellow-300 text-xs font-bold px-2 py-1 border-r-2 border-b-2 border-gray-800 z-10"
+        >
+          GEMINI AI VIEW
+        </div>
+        <div class="border-b-2 border-gray-300 p-6">
+          <div
+            class="flex flex-col md:flex-row items-center justify-between gap-4"
+          >
+            <div>
+              <div class="flex items-center gap-2">
+                <button
+                  onclick="showScreen('dashboard')"
+                  class="text-sm text-gray-500 hover:underline"
+                >
+                  ← Back to Dashboard
+                </button>
+              </div>
+              <h1 class="text-2xl font-bold text-gray-800 mt-1">
+                AI Performance Analysis
+              </h1>
+              <p class="text-gray-600 mt-1">
+                Personalized insights powered by Gemini
+              </p>
+            </div>
+            <button
+              class="wireframe-button px-6 py-3 rounded-lg font-semibold hover:bg-gray-300 flex items-center gap-2"
+            >
+              🔄 REGENERATE ANALYSIS
+            </button>
+          </div>
+        </div>
+
+        <div class="p-6 space-y-6">
+          <div class="wireframe-box rounded-lg p-6 shadow bg-white">
+            <h2 class="font-bold text-gray-800 mb-4 text-lg">
+              📊 Performance Summary
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div class="p-4 bg-gray-50 rounded border border-gray-200">
+                <p class="text-sm text-gray-600 mb-1">Current CGPA</p>
+                <p class="text-3xl font-bold text-gray-800">4.35</p>
+              </div>
+              <div class="p-4 bg-gray-50 rounded border border-gray-200">
+                <p class="text-sm text-gray-600 mb-1">Trend</p>
+                <p class="text-3xl font-bold text-green-600">↗ Improving</p>
+              </div>
+              <div class="p-4 bg-gray-50 rounded border border-gray-200">
+                <p class="text-sm text-gray-600 mb-1">Analysis Date</p>
+                <p class="text-lg font-medium text-gray-800">Nov 19, 2025</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="wireframe-box rounded-lg p-6 shadow bg-white">
+            <h2 class="font-bold text-gray-800 mb-4 text-lg">
+              ⚠️ Areas Needing Attention
+            </h2>
+            <div class="space-y-4">
+              <div
+                class="border-l-4 border-red-500 bg-red-50 p-4 rounded shadow-sm"
+              >
+                <div class="flex items-start justify-between mb-2">
+                  <h3 class="font-bold text-gray-800">Mathematics Courses</h3>
+                  <span
+                    class="px-3 py-1 bg-red-200 text-red-800 text-xs rounded font-bold"
+                    >High Priority</span
+                  >
+                </div>
+                <p class="text-sm text-gray-700 mb-3">
+                  Average Grade: 3.2 / 5.0 (Below your overall average by 1.15
+                  points)
+                </p>
+                <div
+                  class="text-sm text-gray-600 bg-white p-2 rounded border border-red-100"
+                >
+                  <p class="font-medium mb-1">Affected Courses:</p>
+                  <p>• MATH201 - Calculus II (Grade: C)</p>
+                  <p>• MATH301 - Linear Algebra (Grade: C)</p>
+                </div>
+              </div>
+
+              <div
+                class="border-l-4 border-yellow-500 bg-yellow-50 p-4 rounded shadow-sm"
+              >
+                <div class="flex items-start justify-between mb-2">
+                  <h3 class="font-bold text-gray-800">Physics Courses</h3>
+                  <span
+                    class="px-3 py-1 bg-yellow-200 text-yellow-800 text-xs rounded font-bold"
+                    >Medium Priority</span
+                  >
+                </div>
+                <p class="text-sm text-gray-700 mb-3">
+                  Average Grade: 3.8 / 5.0 (Slight decline in recent semester)
+                </p>
+                <div
+                  class="text-sm text-gray-600 bg-white p-2 rounded border border-yellow-100"
+                >
+                  <p class="font-medium mb-1">Affected Courses:</p>
+                  <p>• PHY201 - Physics II (Grade: B)</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="wireframe-box rounded-lg p-6 shadow bg-white">
+            <h2 class="font-bold text-gray-800 mb-4 text-lg">
+              🎯 Predicted Graduation CGPA
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div
+                class="text-center p-4 bg-green-50 rounded-lg border border-green-200"
+              >
+                <p class="text-sm text-gray-600 mb-2">Optimistic</p>
+                <p class="text-4xl font-bold text-green-700">4.45</p>
+                <p class="text-xs text-gray-500 mt-2">If you maintain A's</p>
+              </div>
+              <div
+                class="text-center p-4 bg-blue-50 rounded-lg border-2 border-blue-500 relative shadow-md"
+              >
+                <div
+                  class="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white text-xs px-2 py-0.5 rounded"
+                >
+                  MOST LIKELY
+                </div>
+                <p class="text-sm text-gray-600 mb-2">Realistic</p>
+                <p class="text-4xl font-bold text-blue-700">4.38</p>
+                <p class="text-xs text-gray-500 mt-2">Based on current trend</p>
+              </div>
+              <div
+                class="text-center p-4 bg-orange-50 rounded-lg border border-orange-200"
+              >
+                <p class="text-sm text-gray-600 mb-2">Conservative</p>
+                <p class="text-4xl font-bold text-orange-700">4.28</p>
+                <p class="text-xs text-gray-500 mt-2">Worst case scenario</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="addCourseModal"
+      class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4"
+    >
+      <div
+        class="wireframe-box rounded-lg p-6 shadow-2xl max-w-2xl w-full bg-white relative"
+      >
+        <button
+          onclick="toggleModal('addCourseModal')"
+          class="absolute top-4 right-4 text-gray-500 hover:text-black font-bold text-xl"
+        >
+          &times;
+        </button>
+
+        <h3 class="font-bold text-gray-800 mb-4 text-xl border-b pb-2">
+          Add New Course
+        </h3>
+        <div class="space-y-4">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Course Code *</label
+              >
+              <div class="wireframe-input rounded p-2 bg-white">
+                <input
+                  type="text"
+                  class="w-full outline-none"
+                  placeholder="e.g. CS101"
+                />
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Credit Units *</label
+              >
+              <div class="wireframe-input rounded p-2 bg-white">
+                <input
+                  type="number"
+                  class="w-full outline-none"
+                  placeholder="3"
+                />
+              </div>
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2"
+              >Course Title *</label
+            >
+            <div class="wireframe-input rounded p-2 bg-white">
+              <input
+                type="text"
+                class="w-full outline-none"
+                placeholder="Introduction to Programming"
+              />
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Semester *</label
+              >
+              <select
+                class="wireframe-input rounded p-2 w-full outline-none bg-white"
+              >
+                <option>Fall</option>
+                <option>Spring</option>
+                <option>Summer</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Year *</label
+              >
+              <input
+                type="number"
+                class="wireframe-input rounded p-2 w-full outline-none"
+                value="2024"
+              />
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Status *</label
+              >
+              <select
+                class="wireframe-input rounded p-2 w-full outline-none bg-white"
+              >
+                <option>Completed</option>
+                <option>In Progress</option>
+                <option>To Be Taken</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2"
+                >Grade</label
+              >
+              <select
+                class="wireframe-input rounded p-2 w-full outline-none bg-white"
+              >
+                <option>A (5.0)</option>
+                <option>B (4.0)</option>
+                <option>C (3.0)</option>
+                <option>D (2.0)</option>
+                <option>E (1.0)</option>
+                <option>F (0.0)</option>
+              </select>
+            </div>
+          </div>
+          <div class="flex gap-3 pt-4">
+            <button
+              onclick="toggleModal('addCourseModal')"
+              class="flex-1 wireframe-button rounded p-3 font-semibold bg-gray-800 text-white hover:bg-gray-700"
+            >
+              SAVE COURSE
+            </button>
+            <button
+              onclick="toggleModal('addCourseModal')"
+              class="flex-1 bg-gray-200 rounded p-3 font-semibold hover:bg-gray-300 border-2 border-gray-300"
+            >
+              CANCEL
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Initial screen setup
+      document.addEventListener("DOMContentLoaded", () => {
+        // Highlight the current nav button
+        updateNavHighlight("login");
+      });
+
+      function showScreen(screenId) {
+        // Hide all screens
+        document
+          .querySelectorAll(".screen")
+          .forEach((s) => s.classList.add("hidden"));
+
+        // Show target screen
+        document
+          .getElementById("screen-" + screenId)
+          .classList.remove("hidden");
+
+        // Update top nav highlighting (just for demo visualization)
+        updateNavHighlight(screenId);
+
+        // Scroll to top
+        window.scrollTo(0, 0);
+      }
+
+      function updateNavHighlight(activeId) {
+        // Reset all buttons
+        document.querySelectorAll(".nav-btn").forEach((btn) => {
+          btn.classList.remove("bg-blue-600", "font-bold");
+          btn.classList.add("bg-gray-700");
+        });
+
+        // Highlight active
+        const activeBtn = document.getElementById("nav-" + activeId);
+        if (activeBtn) {
+          activeBtn.classList.remove("bg-gray-700");
+          activeBtn.classList.add("bg-blue-600", "font-bold");
+        }
+      }
+
+      function toggleModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal.classList.contains("hidden")) {
+          modal.classList.remove("hidden");
+        } else {
+          modal.classList.add("hidden");
+        }
+      }
+    </script>
+  </body>
+</html>
