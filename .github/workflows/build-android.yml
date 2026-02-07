@@ -9,21 +9,25 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # Updated to v4
       - uses: actions/checkout@v4
 
-      # Updated to v4 and Node 20 (current standard)
+      # 1. Install Node 22 (Required for Capacitor 7+)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
-      # Updated to v4
+      # 2. Install Java 21 (Required for latest Android Gradle Plugin)
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '17'
+          java-version: '21'
+
+      # 3. Fix Permissions (Crucial for Windows users!)
+      # This prevents the "gradlew: Permission denied" error
+      - name: Make Gradlew Executable
+        run: chmod +x android/gradlew
 
       - name: Install Dependencies
         run: npm install
@@ -34,10 +38,11 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync
 
+      # 4. Build the APK
       - name: Build APK
         run: cd android && ./gradlew assembleDebug
 
-      # FIXED: Updated to v4
+      # 5. Upload the Result
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
