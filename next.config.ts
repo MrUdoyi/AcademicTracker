@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // We keep this to be safe, but we REMOVE "output: 'export'"
+  output: "standalone",
   images: {
     unoptimized: true,
   },
