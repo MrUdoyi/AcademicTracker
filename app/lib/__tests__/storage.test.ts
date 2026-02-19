@@ -16,6 +16,16 @@ import {
 	logout,
 	setCurrentUser,
 } from "../storage/user";
+import {
+	getCachedAiInsights,
+	saveCachedAiInsights,
+} from "../storage/insights";
+import {
+	enqueuePendingAction,
+	getPendingActions,
+	markPendingActionAttempt,
+	removePendingAction,
+} from "../storage/queue";
 
 const isBrowser =
 	typeof window !== "undefined" && typeof localStorage !== "undefined";
@@ -199,5 +209,114 @@ describe.skipIf(!isBrowser)("Course Storage", () => {
 		expect(Object.keys(grouped)).toHaveLength(2);
 		expect(grouped["First 2023"]).toHaveLength(1);
 		expect(grouped["Second 2024"]).toHaveLength(1);
+	});
+});
+
+describe.skipIf(!isBrowser)("AI Insights Cache Storage", () => {
+	test("saveCachedAiInsights and getCachedAiInsights work together", () => {
+		const user = createUser({
+			name: "Insights User",
+			email: "insights@example.com",
+			password: "password123",
+			confirmPassword: "password123",
+		});
+
+		const initialInsights = [
+			"1. Great progress in core courses",
+			"2. Keep balancing theory and practical courses",
+		];
+
+		saveCachedAiInsights(user.id, initialInsights);
+
+		const cached = getCachedAiInsights(user.id);
+
+		expect(cached).toBeDefined();
+		expect(cached?.userId).toBe(user.id);
+		expect(cached?.insights).toEqual(initialInsights);
+		expect(cached?.generatedAt).toBeDefined();
+	});
+
+	test("saveCachedAiInsights updates existing user cache", () => {
+		const user = createUser({
+			name: "Update Cache User",
+			email: "cache-update@example.com",
+			password: "password123",
+			confirmPassword: "password123",
+		});
+
+		saveCachedAiInsights(user.id, ["1. Initial insight"]);
+		saveCachedAiInsights(user.id, [
+			"1. Updated insight",
+			"2. Another updated insight",
+		]);
+
+		const cached = getCachedAiInsights(user.id);
+
+		expect(cached?.insights).toEqual([
+			"1. Updated insight",
+			"2. Another updated insight",
+		]);
+	});
+
+	test("getCachedAiInsights returns null for unknown user", () => {
+		const cached = getCachedAiInsights("missing-user-id");
+		expect(cached).toBeNull();
+	});
+});
+
+describe.skipIf(!isBrowser)("Pending Actions Queue Storage", () => {
+	test("enqueuePendingAction stores action", () => {
+		const action = enqueuePendingAction(
+			"refresh-ai-insights",
+			{ userId: "user-1" },
+			{ dedupeByPayload: true },
+		);
+
+		expect(action).toBeDefined();
+		expect(action.type).toBe("refresh-ai-insights");
+		expect(action.attempts).toBe(0);
+
+		const actions = getPendingActions("refresh-ai-insights");
+		expect(actions).toHaveLength(1);
+		expect(actions[0].payload).toEqual({ userId: "user-1" });
+	});
+
+	test("dedupeByPayload prevents duplicates", () => {
+		enqueuePendingAction(
+			"refresh-ai-insights",
+			{ userId: "user-1" },
+			{ dedupeByPayload: true },
+		);
+		enqueuePendingAction(
+			"refresh-ai-insights",
+			{ userId: "user-1" },
+			{ dedupeByPayload: true },
+		);
+
+		expect(getPendingActions("refresh-ai-insights")).toHaveLength(1);
+	});
+
+	test("markPendingActionAttempt increments attempts and stores error", () => {
+		const action = enqueuePendingAction("refresh-ai-insights", {
+			userId: "user-2",
+		});
+
+		markPendingActionAttempt(action.id, "Network timeout");
+
+		const updated = getPendingActions().find((item) => item.id === action.id);
+		expect(updated?.attempts).toBe(1);
+		expect(updated?.lastError).toBe("Network timeout");
+	});
+
+	test("removePendingAction deletes queued action", () => {
+		const action = enqueuePendingAction("refresh-ai-insights", {
+			userId: "user-3",
+		});
+
+		removePendingAction(action.id);
+
+		expect(getPendingActions().find((item) => item.id === action.id)).toBe(
+			undefined,
+		);
 	});
 });

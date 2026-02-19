@@ -36,6 +36,15 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
+.env*.local
+
+# Secret files - NEVER commit these
+.env*actual*
+.env*real*
+.env*secret*
+*.key
+*.pem
+.secrets/
 
 # vercel
 .vercel

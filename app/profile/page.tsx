@@ -4,6 +4,7 @@ import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Navbar } from "../components/navbar";
+import { OfflineBanner } from "../components/offline-banner";
 import { useAuth } from "../lib/hooks/use-auth";
 import { getUserCourses } from "../lib/storage/course";
 import {
@@ -42,6 +43,8 @@ export default function ProfilePage() {
 			<Navbar userName={user.name} />
 
 			<div className="container mx-auto p-4 px-4 sm:px-6 lg:px-8 max-w-4xl">
+				<OfflineBanner />
+
 				<h1 className="text-3xl font-bold mb-6">Profile</h1>
 
 				<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

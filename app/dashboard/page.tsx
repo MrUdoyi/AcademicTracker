@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Navbar } from "../components/navbar";
+import { OfflineBanner } from "../components/offline-banner";
 import { useAuth } from "../lib/hooks/use-auth";
 import type { Course } from "../lib/schemas/course";
 import { getUserCourses } from "../lib/storage/course";
@@ -68,6 +69,8 @@ export default function DashboardPage() {
 			<Navbar userName={user.name} />
 
 			<div className="container mx-auto p-4 px-4 sm:px-6 lg:px-8 max-w-7xl">
+				<OfflineBanner />
+
 				<div className="mb-6">
 					<h1 className="text-3xl font-bold">Welcome back, {user.name}</h1>
 					<p className="opacity-70 mt-1">Academic progress overview</p>

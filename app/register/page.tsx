@@ -49,7 +49,8 @@ export default function RegisterPage() {
 
 			const user = createUser(data);
 			setCurrentUser(user);
-			router.push("/dashboard");
+			// Redirect to biometric setup instead of dashboard
+			router.push("/biometric-setup");
 		} catch (err) {
 			if (err instanceof v.ValiError) {
 				const newFieldErrors: {

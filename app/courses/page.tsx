@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import * as v from "valibot";
 import { Navbar } from "../components/navbar";
+import { OfflineBanner } from "../components/offline-banner";
 import { useAuth } from "../lib/hooks/use-auth";
 import type { Course } from "../lib/schemas/course";
 import { CreateCourseSchema } from "../lib/schemas/course";
@@ -139,6 +140,8 @@ export default function CoursesPage() {
 			<Navbar userName={user.name} />
 
 			<div className="container mx-auto p-4 px-4 sm:px-6 lg:px-8 max-w-7xl">
+				<OfflineBanner />
+
 				<div className="flex justify-between items-center mb-6">
 					<div>
 						<h1 className="text-3xl font-bold">My Courses</h1>

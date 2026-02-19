@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, FileText, Sparkles } from "lucide-react";
+import { AlertCircle, CheckCircle2, FileText, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
@@ -14,9 +14,13 @@ import {
 	YAxis,
 } from "recharts";
 import { Navbar } from "../components/navbar";
-import { generateGeminiContent } from "../lib/actions/gemini";
 import { useAuth } from "../lib/hooks/use-auth";
+import { useNetworkStatus } from "../lib/hooks/use-network-status";
+import { useAiInsights } from "../lib/hooks/use-ai-insights";
+import { usePendingInsightsProcessor } from "../lib/hooks/use-pending-insights-processor";
+import { useInsightsSyncStatus } from "../lib/hooks/use-insights-sync-status";
 import { getUserCourses } from "../lib/storage/course";
+import { enqueuePendingAction } from "../lib/storage/queue";
 import {
 	calculateCGPA,
 	calculateDegreeProgress,
@@ -30,12 +34,26 @@ import { downloadTranscript } from "../lib/utils/pdf";
 export default function AnalysisPage() {
 	const router = useRouter();
 	const { user, loading } = useAuth();
-	const [activeTab, setActiveTab] = useState<"overview" | "insights">(
-		"overview",
-	);
-	const [aiInsights, setAiInsights] = useState<string[]>([]);
-	const [loadingAi, setLoadingAi] = useState(false);
-	const [aiError, setAiError] = useState<string | null>(null);
+	const { isOnline } = useNetworkStatus();
+
+	// Custom hooks for AI insights management
+	const {
+		insights: aiInsights,
+		cachedGeneratedAt,
+		loading: loadingAi,
+		error: aiError,
+		fetchInsights: fetchAiInsights,
+	} = useAiInsights(user?.id || null);
+
+	const { pendingCount, successMessage, errorMessage } =
+		usePendingInsightsProcessor(user?.id || null, isOnline, fetchAiInsights);
+
+	const { syncStatus: lastAiSync, recordSuccess, recordError } =
+		useInsightsSyncStatus(user?.id || null);
+
+	// Local state
+	const [activeTab, setActiveTab] = useState<"overview" | "insights">("overview");
+	const [aiSuccess, setAiSuccess] = useState<string | null>(null);
 	const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
 	useEffect(() => {
@@ -44,46 +62,50 @@ export default function AnalysisPage() {
 		}
 	}, [user, loading, router]);
 
+	// Show success message from pending processor
+	useEffect(() => {
+		if (!successMessage) return;
+		setAiSuccess(successMessage);
+
+		const timer = window.setTimeout(() => {
+			setAiSuccess(null);
+		}, 4000);
+
+		return () => window.clearTimeout(timer);
+	}, [successMessage]);
+
+	// Show error message from pending processor
+	useEffect(() => {
+		if (!errorMessage) return;
+		const timer = window.setTimeout(() => {
+			recordError(errorMessage);
+		}, 0);
+		return () => window.clearTimeout(timer);
+	}, [errorMessage, recordError]);
+
 	const generateAiInsights = async () => {
 		if (!user) return;
+		setAiSuccess(null);
 
-		setLoadingAi(true);
-		setAiError(null);
-
-		const courses = getUserCourses(user.id);
-		const cgpa = calculateCGPA(courses);
-		const totalCredits = getTotalCredits(courses);
-		const completedCourses = getTotalCoursesCompleted(courses);
-
-		const prompt = `As an academic advisor, analyze this student's academic performance and provide 3-5 specific, actionable insights:
-
-Current CGPA: ${cgpa.toFixed(2)} out of 5.0
-Total Credits: ${totalCredits} out of 120
-Completed Courses: ${completedCourses}
-
-Course Details:
-${courses.map((c) => `- ${c.courseCode}: ${c.title}, Grade: ${c.grade || "In Progress"}, Units: ${c.units}, ${c.semester} ${c.year}`).join("\n")}
-
-Provide insights in a numbered list format. Focus on:
-1. Strengths and achievements
-2. Areas for improvement
-3. Specific recommendations for course selection
-4. Study strategies based on performance patterns
-5. Progress towards degree completion`;
-
-		const response = await generateGeminiContent(prompt);
-
-		if (response.success && response.text) {
-			const insights = response.text
-				.split("\n")
-				.filter((line) => line.trim().length > 0)
-				.slice(0, 5);
-			setAiInsights(insights);
-		} else {
-			setAiError(response.error || "Failed to generate AI insights");
+		if (!isOnline) {
+			enqueuePendingAction(
+				"refresh-ai-insights",
+				{ userId: user.id },
+				{ dedupeByPayload: true },
+			);
+			setAiSuccess(
+				"You're offline. Insight refresh has been queued and will run automatically when you're back online.",
+			);
+			return;
 		}
 
-		setLoadingAi(false);
+		const result = await fetchAiInsights();
+		if (result.success) {
+			setAiSuccess("AI insights updated successfully.");
+			recordSuccess("AI insights fetched successfully");
+		} else {
+			recordError(result.error || "AI insights generation failed");
+		}
 	};
 
 	if (loading) {
@@ -366,17 +388,55 @@ Provide insights in a numbered list format. Focus on:
 										) : (
 											<>
 												<Sparkles className="w-4 h-4" />
-												Generate Insights
+												{isOnline ? "Generate Insights" : "Queue Refresh"}
 											</>
 										)}
 									</button>
 								</div>
 
-								{aiError && (
+								{!isOnline && (
+									<div role="alert" className="alert alert-warning mb-4">
+										<AlertCircle className="h-6 w-6 shrink-0" />
+										<span>
+											You are offline. New AI refresh requests will be queued and
+											automatically processed when online.
+										</span>
+									</div>
+								)}
+
+								{pendingCount > 0 && (
+									<p className="text-sm opacity-80 mb-2">
+										Pending AI refresh requests: {pendingCount}
+									</p>
+								)}
+
+								{errorMessage && (
 									<div role="alert" className="alert alert-error">
 										<AlertCircle className="h-6 w-6 shrink-0" />
-										<span>{aiError}</span>
+										<span>{errorMessage}</span>
 									</div>
+								)}
+
+								{aiSuccess && (
+									<div role="status" className="alert alert-success">
+										<CheckCircle2 className="h-6 w-6 shrink-0" />
+										<span>{aiSuccess}</span>
+									</div>
+								)}
+
+								{cachedGeneratedAt && aiInsights.length > 0 && (
+									<p className="text-sm opacity-80">
+										Showing cached AI insights from{" "}
+										{new Date(cachedGeneratedAt).toLocaleString()}
+									</p>
+								)}
+
+								{lastAiSync && (
+									<p className="text-xs opacity-80">
+										Last AI sync: {new Date(lastAiSync.at).toLocaleString()} ·{" "}
+										{lastAiSync.status === "success" ? "Success" : "Failed"}
+										{lastAiSync.detail ? ` (${lastAiSync.detail})` : ""}
+									</p>
 								)}
 
 								{aiInsights.length > 0 ? (
