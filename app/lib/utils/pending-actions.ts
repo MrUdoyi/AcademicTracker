@@ -3,6 +3,7 @@ import type { PendingAction, PendingActionType } from "../storage/queue";
 
 /**
  * Utility to safely extract userId from pending action payload
+ * Ensures type safety when working with pending actions
  */
 export function getPayloadUserId(action: PendingAction): string | null {
 	if (
