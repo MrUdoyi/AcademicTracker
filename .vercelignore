@@ -1,0 +1,24 @@
+# Vercel ignore file - don't deploy these
+node_modules/
+.git/
+.github/
+.next/
+coverage/
+*.log
+*.pem
+.DS_Store
+.env*
+!.env.example
+.vercel/
+.bun/
+
+# Mobile platforms - not needed for web PWA deployment
+android/
+ios/
+
+# Development files
+todo.md
+APT Wireframe.html
+System Documentations.md
+Gemini\ API\ Documentation.md
+database-creation.md
