@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -13,7 +13,6 @@ export const metadata: Metadata = {
 	formatDetection: {
 		telephone: false,
 	},
-	viewport: "width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes, viewport-fit=cover",
 	icons: {
 		icon: [
 			{ url: "/icon-192x192.png", sizes: "192x192", type: "image/png" },
@@ -26,6 +25,14 @@ export const metadata: Metadata = {
 		"mobile-web-app-capable": "yes",
 		"mobile-web-app-status-bar-style": "black-translucent",
 	},
+};
+
+export const viewport: Viewport = {
+	width: "device-width",
+	initialScale: 1,
+	maximumScale: 5,
+	userScalable: true,
+	viewportFit: "cover",
 };
 
 export default function RootLayout({
