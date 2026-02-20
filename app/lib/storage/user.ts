@@ -1,95 +1,103 @@
-import { v4 as uuidv4 } from "uuid";
 import type { LoginInput, RegisterInput, User } from "../schemas/user";
-import { storage } from "./base";
+import { supabase } from "../supabase/client";
 
-const USERS_KEY = "apt_users";
-const CURRENT_USER_KEY = "apt_current_user";
-
-/**
- * Get all users from storage
- */
-export function getUsers(): User[] {
-	return storage.get<User[]>(USERS_KEY) || [];
-}
-
-/**
- * Get user by ID
- */
-export function getUserById(id: string): User | null {
-	const users = getUsers();
-	return users.find((user) => user.id === id) || null;
-}
-
-/**
- * Get user by email
- */
-export function getUserByEmail(email: string): User | null {
-	const users = getUsers();
-	return users.find((user) => user.email === email) || null;
+function mapSupabaseUserToAppUser(
+	user: { id: string; email?: string | null; created_at?: string },
+	profileName?: string,
+): User {
+	return {
+		id: user.id,
+		email: user.email || "",
+		name: profileName || user.email?.split("@")[0] || "Student",
+		password: "",
+		createdAt: user.created_at || new Date().toISOString(),
+	};
 }
 
 /**
  * Create new user (registration)
  */
-export function createUser(data: RegisterInput): User {
-	const users = getUsers();
+export async function createUser(data: RegisterInput): Promise<User> {
+	const { data: authData, error } = await supabase.auth.signUp({
+		email: data.email,
+		password: data.password,
+	});
 
-	const existingUser = getUserByEmail(data.email);
-	if (existingUser) {
-		throw new Error("User with this email already exists");
+	if (error) {
+		throw new Error(error.message);
 	}
 
-	const newUser: User = {
-		id: uuidv4(),
-		email: data.email,
+	const authUser = authData.user;
+	if (!authUser) {
+		throw new Error("Registration failed");
+	}
+
+	const { error: profileError } = await supabase.from("profiles").upsert({
+		id: authUser.id,
 		name: data.name,
-		password: data.password,
-		createdAt: new Date().toISOString(),
-	};
+		email: data.email,
+		created_at: authUser.created_at,
+	});
 
-	users.push(newUser);
-	storage.set(USERS_KEY, users);
+	if (profileError) {
+		throw new Error(profileError.message);
+	}
 
-	return newUser;
+	return mapSupabaseUserToAppUser(authUser, data.name);
 }
 
 /**
  * Authenticate user (login)
  */
-export function authenticateUser(data: LoginInput): User {
-	const user = getUserByEmail(data.email);
+export async function authenticateUser(data: LoginInput): Promise<User> {
+	const { data: authData, error } = await supabase.auth.signInWithPassword({
+		email: data.email,
+		password: data.password,
+	});
 
-	if (!user) {
-		throw new Error("Invalid email or password");
+	if (error || !authData.user) {
+		throw new Error(error?.message || "Invalid email or password");
 	}
 
-	if (user.password !== data.password) {
-		throw new Error("Invalid email or password");
-	}
+	const { data: profileData } = await supabase
+		.from("profiles")
+		.select("name")
+		.eq("id", authData.user.id)
+		.single();
 
-	return user;
+	return mapSupabaseUserToAppUser(authData.user, profileData?.name);
 }
 
 /**
  * Get current logged-in user
  */
-export function getCurrentUser(): User | null {
-	const userId = storage.get<string>(CURRENT_USER_KEY);
-	if (!userId) return null;
+export async function getCurrentUser(): Promise<User | null> {
+	const { data: authData } = await supabase.auth.getUser();
+	if (!authData.user) return null;
 
-	return getUserById(userId);
+	const { data: profileData } = await supabase
+		.from("profiles")
+		.select("name")
+		.eq("id", authData.user.id)
+		.single();
+
+	return mapSupabaseUserToAppUser(authData.user, profileData?.name);
 }
 
 /**
  * Set current user (after login)
  */
-export function setCurrentUser(user: User): void {
-	storage.set(CURRENT_USER_KEY, user.id);
+export function setCurrentUser(_user: User): void {
+	// Session is managed by Supabase auth.
 }
 
 /**
  * Logout current user
  */
-export function logout(): void {
-	storage.remove(CURRENT_USER_KEY);
+export async function logout(): Promise<void> {
+	const { error } = await supabase.auth.signOut();
+	if (error) {
+		throw new Error(error.message);
+	}
 }
+

@@ -1,7 +1,4 @@
-import { storage } from "./base";
-
-const AI_INSIGHTS_KEY = "apt_ai_insights";
-const LAST_AI_SYNC_KEY = "apt_last_ai_sync";
+import { supabase } from "../supabase/client";
 
 export interface CachedAiInsights {
 	userId: string;
@@ -17,48 +14,55 @@ export interface LastAiSyncStatus {
 }
 
 /**
- * Get all cached AI insights from storage
- */
-function getAllCachedInsights(): CachedAiInsights[] {
-	return storage.get<CachedAiInsights[]>(AI_INSIGHTS_KEY) || [];
-}
-
-/**
  * Get cached AI insights for a specific user
  */
-export function getCachedAiInsights(userId: string): CachedAiInsights | null {
-	const allInsights = getAllCachedInsights();
-	return allInsights.find((entry) => entry.userId === userId) || null;
+export async function getCachedAiInsights(userId: string): Promise<CachedAiInsights | null> {
+	const { data, error } = await supabase
+		.from("insights")
+		.select("insights, generated_at")
+		.eq("user_id", userId)
+		.single();
+
+	if (error || !data) return null;
+
+	return {
+		userId,
+		insights: (data.insights as string[]) || [],
+		generatedAt: data.generated_at as string,
+	};
 }
 
 /**
  * Save AI insights cache for a specific user
  */
-export function saveCachedAiInsights(userId: string, insights: string[]): void {
-	const allInsights = getAllCachedInsights();
-	const nextEntry: CachedAiInsights = {
-		userId,
+export async function saveCachedAiInsights(userId: string, insights: string[]): Promise<void> {
+	const { error } = await supabase.from("insights").upsert({
+		user_id: userId,
 		insights,
-		generatedAt: new Date().toISOString(),
-	};
+		generated_at: new Date().toISOString(),
+	});
 
-	const index = allInsights.findIndex((entry) => entry.userId === userId);
-
-	if (index === -1) {
-		allInsights.push(nextEntry);
-	} else {
-		allInsights[index] = nextEntry;
-	}
-
-	storage.set(AI_INSIGHTS_KEY, allInsights);
+	if (error) throw new Error(error.message);
 }
 
 /**
  * Get last AI sync status for a specific user
  */
-export function getLastAiSyncStatus(userId: string): LastAiSyncStatus | null {
-	const allStatuses = storage.get<LastAiSyncStatus[]>(LAST_AI_SYNC_KEY) || [];
-	return allStatuses.find((entry) => entry.userId === userId) || null;
+export async function getLastAiSyncStatus(userId: string): Promise<LastAiSyncStatus | null> {
+	const { data, error } = await supabase
+		.from("insights")
+		.select("last_sync_status, last_sync_at, last_sync_detail")
+		.eq("user_id", userId)
+		.single();
+
+	if (error || !data || !data.last_sync_status || !data.last_sync_at) return null;
+
+	return {
+		userId,
+		status: data.last_sync_status as "success" | "error",
+		at: data.last_sync_at as string,
+		detail: (data.last_sync_detail as string) || "",
+	};
 }
 
 /**
@@ -68,10 +72,14 @@ export function saveLastAiSyncStatus(
 	userId: string,
 	status: "success" | "error",
 	detail: string,
-): void {
-	const allStatuses = storage.get<LastAiSyncStatus[]>(LAST_AI_SYNC_KEY) || [];
-	const nextEntry: LastAiSyncStatus = { userId, status, at: new Date().toISOString(), detail };
-	const index = allStatuses.findIndex((entry) => entry.userId === userId);
-	index === -1 ? allStatuses.push(nextEntry) : (allStatuses[index] = nextEntry);
-	storage.set(LAST_AI_SYNC_KEY, allStatuses);
+): Promise<void> {
+	const { error } = await supabase.from("insights").upsert({
+		user_id: userId,
+		last_sync_status: status,
+		last_sync_at: new Date().toISOString(),
+		last_sync_detail: detail,
+		generated_at: new Date().toISOString(),
+	});
+
+	if (error) throw new Error(error.message);
 }

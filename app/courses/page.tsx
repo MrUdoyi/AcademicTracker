@@ -36,9 +36,9 @@ export default function CoursesPage() {
 		status: "in-progress" as "in-progress" | "completed",
 	});
 
-	const loadCourses = useCallback(() => {
+	const loadCourses = useCallback(async () => {
 		if (!user) return;
-		const grouped = getCoursesBySemester(user.id);
+		const grouped = await getCoursesBySemester(user.id);
 		setCoursesBySemester(grouped);
 	}, [user]);
 
@@ -49,7 +49,7 @@ export default function CoursesPage() {
 		}
 
 		if (user) {
-			loadCourses();
+			void loadCourses();
 		}
 	}, [user, loading, router, loadCourses]);
 
@@ -83,7 +83,7 @@ export default function CoursesPage() {
 		setShowModal(true);
 	};
 
-	const handleSubmit = (e: React.FormEvent) => {
+	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setError("");
 
@@ -96,13 +96,13 @@ export default function CoursesPage() {
 			});
 
 			if (editingCourse) {
-				updateCourse(editingCourse.id, data);
+				await updateCourse(editingCourse.id, data);
 			} else {
-				createCourse(user.id, data);
+				await createCourse(user.id, data);
 			}
 
 			setShowModal(false);
-			loadCourses();
+			await loadCourses();
 		} catch (err) {
 			if (err instanceof v.ValiError) {
 				setError(err.issues[0].message);
@@ -114,11 +114,11 @@ export default function CoursesPage() {
 		}
 	};
 
-	const handleDelete = (courseId: string) => {
+	const handleDelete = async (courseId: string) => {
 		if (confirm("Are you sure you want to delete this course?")) {
 			try {
-				deleteCourse(courseId);
-				loadCourses();
+				await deleteCourse(courseId);
+				await loadCourses();
 			} catch {
 				alert("Failed to delete course");
 			}
@@ -223,7 +223,7 @@ export default function CoursesPage() {
 																</button>
 																<button
 																	type="button"
-																	onClick={() => handleDelete(course.id)}
+																	onClick={() => void handleDelete(course.id)}
 																	className="btn btn-sm btn-error btn-ghost"
 																>
 																	Delete

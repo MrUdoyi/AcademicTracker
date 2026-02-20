@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { GeminiResponse } from "../actions/gemini";
 import { getUserCourses } from "../storage/course";
 import { getCachedAiInsights, saveCachedAiInsights } from "../storage/insights";
@@ -26,14 +26,17 @@ export function useAiInsights(userId: string | null): UseAiInsightsReturn {
 	const [error, setError] = useState<string | null>(null);
 
 	// Load cached insights on mount
-	useState(() => {
+	useEffect(() => {
 		if (!userId) return;
-		const cached = getCachedAiInsights(userId);
-		if (cached) {
-			setInsights(cached.insights);
-			setCachedGeneratedAt(cached.generatedAt);
-		}
-	});
+
+		void (async () => {
+			const cached = await getCachedAiInsights(userId);
+			if (cached) {
+				setInsights(cached.insights);
+				setCachedGeneratedAt(cached.generatedAt);
+			}
+		})();
+	}, [userId]);
 
 	const fetchInsights = useCallback(async () => {
 		if (!userId) {
@@ -44,7 +47,7 @@ export function useAiInsights(userId: string | null): UseAiInsightsReturn {
 		setError(null);
 
 		try {
-			const courses = getUserCourses(userId);
+			const courses = await getUserCourses(userId);
 			const cgpa = calculateCGPA(courses);
 			const totalCredits = getTotalCredits(courses);
 			const completedCourses = getTotalCoursesCompleted(courses);
@@ -88,7 +91,7 @@ Provide insights in a numbered list format. Focus on:
 					.slice(0, 5);
 
 				setInsights(insightsList);
-				saveCachedAiInsights(userId, insightsList);
+				await saveCachedAiInsights(userId, insightsList);
 				setCachedGeneratedAt(new Date().toISOString());
 				setError(null);
 

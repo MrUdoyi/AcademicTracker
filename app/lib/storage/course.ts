@@ -1,59 +1,103 @@
-import { v4 as uuidv4 } from "uuid";
 import type { Course, CreateCourseInput } from "../schemas/course";
-import { storage } from "./base";
+import { supabase } from "../supabase/client";
 
-const COURSES_KEY = "apt_courses";
+type CourseRow = {
+	id: string;
+	user_id: string;
+	course_code: string;
+	title: string;
+	units: number;
+	grade: string | null;
+	semester: "First" | "Second" | "Summer";
+	year: number;
+	status: "in-progress" | "completed";
+	created_at: string;
+	updated_at: string;
+};
+
+function mapRowToCourse(row: CourseRow): Course {
+	return {
+		id: row.id,
+		userId: row.user_id,
+		courseCode: row.course_code,
+		title: row.title,
+		units: row.units,
+		grade: row.grade || undefined,
+		semester: row.semester,
+		year: row.year,
+		status: row.status,
+		createdAt: row.created_at,
+		updatedAt: row.updated_at,
+	};
+}
 
 /**
  * Get all courses from storage
  */
-export function getCourses(): Course[] {
-	return storage.get<Course[]>(COURSES_KEY) || [];
+export async function getCourses(): Promise<Course[]> {
+	const { data, error } = await supabase
+		.from("courses")
+		.select("*")
+		.order("created_at", { ascending: false });
+
+	if (error) throw new Error(error.message);
+	return ((data || []) as CourseRow[]).map(mapRowToCourse);
 }
 
 /**
  * Get courses for specific user
  */
-export function getUserCourses(userId: string): Course[] {
-	const courses = getCourses();
-	return courses.filter((course) => course.userId === userId);
+export async function getUserCourses(userId: string): Promise<Course[]> {
+	const { data, error } = await supabase
+		.from("courses")
+		.select("*")
+		.eq("user_id", userId)
+		.order("year", { ascending: false });
+
+	if (error) throw new Error(error.message);
+	return ((data || []) as CourseRow[]).map(mapRowToCourse);
 }
 
 /**
  * Get course by ID
  */
-export function getCourseById(id: string): Course | null {
-	const courses = getCourses();
-	return courses.find((course) => course.id === id) || null;
+export async function getCourseById(id: string): Promise<Course | null> {
+	const { data, error } = await supabase
+		.from("courses")
+		.select("*")
+		.eq("id", id)
+		.single();
+
+	if (error) return null;
+	return mapRowToCourse(data as CourseRow);
 }
 
 /**
  * Create new course
  */
-export function createCourse(userId: string, data: CreateCourseInput): Course {
-	const courses = getCourses();
-
-	const existingCourse = courses.find(
-		(c) => c.userId === userId && c.courseCode === data.courseCode,
-	);
-
-	if (existingCourse) {
-		throw new Error("Course with this code already exists");
-	}
-
-	const now = new Date().toISOString();
-	const newCourse: Course = {
-		id: uuidv4(),
-		userId,
-		...data,
-		createdAt: now,
-		updatedAt: now,
+export async function createCourse(userId: string, data: CreateCourseInput): Promise<Course> {
+	const payload = {
+		user_id: userId,
+		course_code: data.courseCode,
+		title: data.title,
+		units: data.units,
+		grade: data.grade || null,
+		semester: data.semester,
+		year: data.year,
+		status: data.status,
 	};
 
-	courses.push(newCourse);
-	storage.set(COURSES_KEY, courses);
+	const { data: created, error } = await supabase
+		.from("courses")
+		.insert(payload)
+		.select("*")
+		.single();
 
-	return newCourse;
+	if (error || !created) {
+		throw new Error(error?.message || "Failed to create course");
+	}
+
+	return mapRowToCourse(created as CourseRow);
 }
 
 /**
@@ -62,45 +106,46 @@ export function createCourse(userId: string, data: CreateCourseInput): Course {
 export function updateCourse(
 	id: string,
 	data: Partial<CreateCourseInput>,
-): Course {
-	const courses = getCourses();
-	const index = courses.findIndex((course) => course.id === id);
-
-	if (index === -1) {
-		throw new Error("Course not found");
-	}
-
-	const updatedCourse: Course = {
-		...courses[index],
-		...data,
-		updatedAt: new Date().toISOString(),
+): Promise<Course> {
+	const updates: Record<string, unknown> = {
+		updated_at: new Date().toISOString(),
 	};
 
-	courses[index] = updatedCourse;
-	storage.set(COURSES_KEY, courses);
+	if (data.courseCode !== undefined) updates.course_code = data.courseCode;
+	if (data.title !== undefined) updates.title = data.title;
+	if (data.units !== undefined) updates.units = data.units;
+	if (data.grade !== undefined) updates.grade = data.grade || null;
+	if (data.semester !== undefined) updates.semester = data.semester;
+	if (data.year !== undefined) updates.year = data.year;
+	if (data.status !== undefined) updates.status = data.status;
 
-	return updatedCourse;
+	const { data: updated, error } = await supabase
+		.from("courses")
+		.update(updates)
+		.eq("id", id)
+		.select("*")
+		.single();
+
+	if (error || !updated) {
+		throw new Error(error?.message || "Course not found");
+	}
+
+	return mapRowToCourse(updated as CourseRow);
 }
 
 /**
  * Delete course
  */
-export function deleteCourse(id: string): void {
-	const courses = getCourses();
-	const filtered = courses.filter((course) => course.id !== id);
-
-	if (filtered.length === courses.length) {
-		throw new Error("Course not found");
-	}
-
-	storage.set(COURSES_KEY, filtered);
+export async function deleteCourse(id: string): Promise<void> {
+	const { error } = await supabase.from("courses").delete().eq("id", id);
+	if (error) throw new Error(error.message);
 }
 
 /**
  * Get courses grouped by semester
  */
-export function getCoursesBySemester(userId: string): Record<string, Course[]> {
-	const courses = getUserCourses(userId);
+export async function getCoursesBySemester(userId: string): Promise<Record<string, Course[]>> {
+	const courses = await getUserCourses(userId);
 	const grouped: Record<string, Course[]> = {};
 
 	for (const course of courses) {

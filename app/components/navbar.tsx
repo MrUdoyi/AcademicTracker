@@ -23,8 +23,8 @@ export function Navbar({ userName }: NavbarProps) {
 	const pathname = usePathname();
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-	const handleLogout = () => {
-		logout();
+	const handleLogout = async () => {
+		await logout();
 		router.push("/");
 	};
 
@@ -79,7 +79,7 @@ export function Navbar({ userName }: NavbarProps) {
 
 				<button
 					type="button"
-					onClick={handleLogout}
+					onClick={() => void handleLogout()}
 					className="btn btn-error btn-sm hidden lg:flex gap-2"
 					aria-label="Logout"
 				>
@@ -125,7 +125,7 @@ export function Navbar({ userName }: NavbarProps) {
 							<button
 								type="button"
 								onClick={() => {
-									handleLogout();
+									void handleLogout();
 									closeMobileMenu();
 								}}
 								className="text-error"

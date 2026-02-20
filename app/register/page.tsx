@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import * as v from "valibot";
 import { RegisterSchema } from "../lib/schemas/user";
-import { createUser, setCurrentUser } from "../lib/storage/user";
+import { createUser } from "../lib/storage/user";
 
 export default function RegisterPage() {
 	const router = useRouter();
@@ -47,8 +47,7 @@ export default function RegisterPage() {
 				confirmPassword,
 			});
 
-			const user = createUser(data);
-			setCurrentUser(user);
+			await createUser(data);
 			// Redirect to biometric setup instead of dashboard
 			router.push("/biometric-setup");
 		} catch (err) {

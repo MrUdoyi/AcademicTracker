@@ -2,10 +2,11 @@
 
 import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Navbar } from "../components/navbar";
 import { OfflineBanner } from "../components/offline-banner";
 import { useAuth } from "../lib/hooks/use-auth";
+import type { Course } from "../lib/schemas/course";
 import { getUserCourses } from "../lib/storage/course";
 import {
 	calculateCGPA,
@@ -16,12 +17,33 @@ import {
 export default function ProfilePage() {
 	const router = useRouter();
 	const { user, loading } = useAuth();
+	const [courses, setCourses] = useState<Course[]>([]);
 
 	useEffect(() => {
 		if (!loading && !user) {
 			router.push("/");
 		}
 	}, [user, loading, router]);
+
+	useEffect(() => {
+		let isMounted = true;
+
+		const loadCourses = async () => {
+			if (!user) {
+				if (isMounted) setCourses([]);
+				return;
+			}
+
+			const userCourses = await getUserCourses(user.id);
+			if (isMounted) setCourses(userCourses);
+		};
+
+		void loadCourses();
+
+		return () => {
+			isMounted = false;
+		};
+	}, [user]);
 
 	if (loading) {
 		return (
@@ -33,7 +55,6 @@ export default function ProfilePage() {
 
 	if (!user) return null;
 
-	const courses = getUserCourses(user.id);
 	const cgpa = calculateCGPA(courses);
 	const totalCredits = getTotalCredits(courses);
 	const completedCourses = getTotalCoursesCompleted(courses);

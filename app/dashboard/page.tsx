@@ -3,7 +3,7 @@
 import { FileText, Plus, Sparkles, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Navbar } from "../components/navbar";
 import { OfflineBanner } from "../components/offline-banner";
 import { useAuth } from "../lib/hooks/use-auth";
@@ -24,16 +24,33 @@ export default function DashboardPage() {
 	const router = useRouter();
 	const { user, loading } = useAuth();
 	const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
-	const courses = useMemo<Course[]>(
-		() => (user ? getUserCourses(user.id) : []),
-		[user],
-	);
+	const [courses, setCourses] = useState<Course[]>([]);
 
 	useEffect(() => {
 		if (!loading && !user) {
 			router.push("/");
 		}
 	}, [user, loading, router]);
+
+	useEffect(() => {
+		let isMounted = true;
+
+		const loadCourses = async () => {
+			if (!user) {
+				if (isMounted) setCourses([]);
+				return;
+			}
+
+			const userCourses = await getUserCourses(user.id);
+			if (isMounted) setCourses(userCourses);
+		};
+
+		void loadCourses();
+
+		return () => {
+			isMounted = false;
+		};
+	}, [user]);
 
 	if (loading) {
 		return (
@@ -48,7 +65,7 @@ export default function DashboardPage() {
 	const cgpa = calculateCGPA(courses);
 	const totalCredits = getTotalCredits(courses);
 	const completedCourses = getTotalCoursesCompleted(courses);
-	const inProgressCourses = getCoursesInProgress(courses);
+	const inProgressCourses = getCoursesInProgress(courses).length;
 	const degreeProgress = calculateDegreeProgress(totalCredits);
 	const semesterPerformance = getSemesterPerformance(courses);
 	const insights = generateInsights(courses);

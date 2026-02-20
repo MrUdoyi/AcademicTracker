@@ -55,12 +55,33 @@ export default function AnalysisPage() {
 	const [activeTab, setActiveTab] = useState<"overview" | "insights">("overview");
 	const [aiSuccess, setAiSuccess] = useState<string | null>(null);
 	const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+	const [courses, setCourses] = useState<Array<Awaited<ReturnType<typeof getUserCourses>>[number]>>([]);
 
 	useEffect(() => {
 		if (!loading && !user) {
 			router.push("/");
 		}
 	}, [user, loading, router]);
+
+	useEffect(() => {
+		let isMounted = true;
+
+		const loadCourses = async () => {
+			if (!user) {
+				if (isMounted) setCourses([]);
+				return;
+			}
+
+			const result = await getUserCourses(user.id);
+			if (isMounted) setCourses(result);
+		};
+
+		void loadCourses();
+
+		return () => {
+			isMounted = false;
+		};
+	}, [user]);
 
 	// Show success message from pending processor
 	useEffect(() => {
@@ -117,8 +138,6 @@ export default function AnalysisPage() {
 	}
 
 	if (!user) return null;
-
-	const courses = getUserCourses(user.id);
 
 	const handleExportPDF = () => {
 		setIsGeneratingPDF(true);

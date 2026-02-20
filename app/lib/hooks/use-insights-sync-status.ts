@@ -24,13 +24,15 @@ export function useInsightsSyncStatus(
 	// Load sync status from localStorage on mount
 	useEffect(() => {
 		if (!userId) return;
-		const status = getLastAiSyncStatus(userId);
-		setSyncStatus(status);
+		void (async () => {
+			const status = await getLastAiSyncStatus(userId);
+			setSyncStatus(status);
+		})();
 	}, [userId]);
 
 	const recordSuccess = (detail: string) => {
 		if (!userId) return;
-		saveLastAiSyncStatus(userId, "success", detail);
+		void saveLastAiSyncStatus(userId, "success", detail);
 		setSyncStatus({
 			userId,
 			status: "success",
@@ -41,7 +43,7 @@ export function useInsightsSyncStatus(
 
 	const recordError = (detail: string) => {
 		if (!userId) return;
-		saveLastAiSyncStatus(userId, "error", detail);
+		void saveLastAiSyncStatus(userId, "error", detail);
 		setSyncStatus({
 			userId,
 			status: "error",

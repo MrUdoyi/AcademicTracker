@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import * as v from "valibot";
 import { LoginSchema } from "./lib/schemas/user";
-import { authenticateUser, setCurrentUser } from "./lib/storage/user";
+import { authenticateUser } from "./lib/storage/user";
 
 export default function LoginPage() {
 	const router = useRouter();
@@ -27,8 +27,7 @@ export default function LoginPage() {
 
 		try {
 			const data = v.parse(LoginSchema, { email, password });
-			const user = authenticateUser(data);
-			setCurrentUser(user);
+			await authenticateUser(data);
 			router.push("/dashboard");
 		} catch (err) {
 			if (err instanceof v.ValiError) {
