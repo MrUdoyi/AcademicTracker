@@ -1,11 +1,11 @@
-import { ReactNode } from "react";
+import type { ComponentType } from "react";
 import { useBiometricStatus } from "./use-biometric-status";
 import { useAuth } from "./use-auth";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-export function withBiometricProtection(Component: React.ComponentType<any>) {
-	return function ProtectedComponent(props: any) {
+export function withBiometricProtection<P extends object>(Component: ComponentType<P>) {
+	return function ProtectedComponent(props: P) {
 		const router = useRouter();
 		const { user, loading: authLoading } = useAuth();
 		const { isUnlocked, isLocked, needsSetup, loading: bioLoading } = useBiometricStatus(
