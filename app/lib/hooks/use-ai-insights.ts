@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { generateGeminiContent } from "../actions/gemini";
+import type { GeminiResponse } from "../actions/gemini";
 import { getUserCourses } from "../storage/course";
 import { getCachedAiInsights, saveCachedAiInsights } from "../storage/insights";
 import {
@@ -65,10 +65,24 @@ Provide insights in a numbered list format. Focus on:
 4. Study strategies based on performance patterns
 5. Progress towards degree completion`;
 
-			const response = await generateGeminiContent(prompt);
+			const response = await fetch("/api/gemini", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({ prompt }),
+			});
 
-			if (response.success && response.text) {
-				const insightsList = response.text
+			const data = (await response.json()) as GeminiResponse;
+
+			if (!response.ok) {
+				const errorMsg = data.error || "Failed to generate AI insights";
+				setError(errorMsg);
+				return { success: false, error: errorMsg };
+			}
+
+			if (data.success && data.text) {
+				const insightsList = data.text
 					.split("\n")
 					.filter((line) => line.trim().length > 0)
 					.slice(0, 5);
@@ -81,7 +95,7 @@ Provide insights in a numbered list format. Focus on:
 				return { success: true };
 			}
 
-			const errorMsg = response.error || "Failed to generate AI insights";
+			const errorMsg = data.error || "Failed to generate AI insights";
 			setError(errorMsg);
 			return { success: false, error: errorMsg };
 		} catch (err) {
