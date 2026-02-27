@@ -65,7 +65,7 @@ export default function DashboardPage() {
 	const cgpa = calculateCGPA(courses);
 	const totalCredits = getTotalCredits(courses);
 	const completedCourses = getTotalCoursesCompleted(courses);
-	const inProgressCourses = getCoursesInProgress(courses).length;
+	const inProgressCourses = getCoursesInProgress(courses);
 	const degreeProgress = calculateDegreeProgress(totalCredits);
 	const semesterPerformance = getSemesterPerformance(courses);
 	const insights = generateInsights(courses);

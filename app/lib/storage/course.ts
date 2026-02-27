@@ -1,4 +1,4 @@
-import type { Course, CreateCourseInput } from "../schemas/course";
+import type { Course, CreateCourseInput, Grade } from "../schemas/course";
 import { supabase } from "../supabase/client";
 
 type CourseRow = {
@@ -15,6 +15,13 @@ type CourseRow = {
 	updated_at: string;
 };
 
+const VALID_GRADES: Grade[] = ["A", "B+", "B", "C+", "C", "D+", "D", "E", "F"];
+
+function toGrade(value: string | null): Grade | undefined {
+	if (!value) return undefined;
+	return VALID_GRADES.includes(value as Grade) ? (value as Grade) : undefined;
+}
+
 function mapRowToCourse(row: CourseRow): Course {
 	return {
 		id: row.id,
@@ -22,7 +29,7 @@ function mapRowToCourse(row: CourseRow): Course {
 		courseCode: row.course_code,
 		title: row.title,
 		units: row.units,
-		grade: row.grade || undefined,
+		grade: toGrade(row.grade),
 		semester: row.semester,
 		year: row.year,
 		status: row.status,
