@@ -103,7 +103,7 @@ export async function createCourse(userId: string, data: CreateCourseInput): Pro
 /**
  * Update existing course
  */
-export function updateCourse(
+export async function updateCourse(
 	id: string,
 	data: Partial<CreateCourseInput>,
 ): Promise<Course> {

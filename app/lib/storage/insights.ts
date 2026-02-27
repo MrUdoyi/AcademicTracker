@@ -68,7 +68,7 @@ export async function getLastAiSyncStatus(userId: string): Promise<LastAiSyncSta
 /**
  * Save last AI sync status for a specific user
  */
-export function saveLastAiSyncStatus(
+export async function saveLastAiSyncStatus(
 	userId: string,
 	status: "success" | "error",
 	detail: string,
