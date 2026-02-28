@@ -1,6 +1,21 @@
 import type { LoginInput, RegisterInput, User } from "../schemas/user";
 import { supabase } from "../supabase/client";
 
+function normalizeAuthError(error: unknown): Error {
+	if (error instanceof Error) {
+		const message = error.message.toLowerCase();
+		if (message.includes("failed to fetch") || message.includes("networkerror")) {
+			return new Error(
+				"Cannot reach Supabase. Check your internet connection and verify NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your deployment environment.",
+			);
+		}
+
+		return error;
+	}
+
+	return new Error("Authentication failed. Please try again.");
+}
+
 function mapSupabaseUserToAppUser(
 	user: { id: string; email?: string | null; created_at?: string },
 	profileName?: string,
@@ -18,10 +33,28 @@ function mapSupabaseUserToAppUser(
  * Create new user (registration)
  */
 export async function createUser(data: RegisterInput): Promise<User> {
-	const { data: authData, error } = await supabase.auth.signUp({
-		email: data.email,
-		password: data.password,
-	});
+	let authData:
+		| {
+				user: {
+					id: string;
+					email?: string | null;
+					created_at?: string;
+				} | null;
+		  }
+		| undefined;
+	let error: { message: string } | null = null;
+
+	try {
+		const result = await supabase.auth.signUp({
+			email: data.email,
+			password: data.password,
+		});
+
+		authData = result.data as typeof authData;
+		error = result.error;
+	} catch (err) {
+		throw normalizeAuthError(err);
+	}
 
 	if (error) {
 		throw new Error(error.message);
@@ -40,7 +73,7 @@ export async function createUser(data: RegisterInput): Promise<User> {
 	});
 
 	if (profileError) {
-		throw new Error(profileError.message);
+		throw normalizeAuthError(new Error(profileError.message));
 	}
 
 	return mapSupabaseUserToAppUser(authUser, data.name);
@@ -50,13 +83,33 @@ export async function createUser(data: RegisterInput): Promise<User> {
  * Authenticate user (login)
  */
 export async function authenticateUser(data: LoginInput): Promise<User> {
-	const { data: authData, error } = await supabase.auth.signInWithPassword({
-		email: data.email,
-		password: data.password,
-	});
+	let authData:
+		| {
+				user: {
+					id: string;
+					email?: string | null;
+					created_at?: string;
+				} | null;
+		  }
+		| undefined;
+	let error: { message: string } | null = null;
+
+	try {
+		const result = await supabase.auth.signInWithPassword({
+			email: data.email,
+			password: data.password,
+		});
+
+		authData = result.data as typeof authData;
+		error = result.error;
+	} catch (err) {
+		throw normalizeAuthError(err);
+	}
 
 	if (error || !authData.user) {
-		throw new Error(error?.message || "Invalid email or password");
+		throw normalizeAuthError(
+			new Error(error?.message || "Invalid email or password"),
+		);
 	}
 
 	const { data: profileData } = await supabase
