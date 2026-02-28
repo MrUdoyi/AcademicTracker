@@ -56,8 +56,8 @@ export async function createUser(data: RegisterInput): Promise<User> {
 		throw normalizeAuthError(err);
 	}
 
-	if (error) {
-		throw new Error(error.message);
+	if (error || !authData) {
+		throw new Error(error?.message || "Registration failed");
 	}
 
 	const authUser = authData.user;
@@ -106,7 +106,7 @@ export async function authenticateUser(data: LoginInput): Promise<User> {
 		throw normalizeAuthError(err);
 	}
 
-	if (error || !authData.user) {
+	if (error || !authData || !authData.user) {
 		throw normalizeAuthError(
 			new Error(error?.message || "Invalid email or password"),
 		);
