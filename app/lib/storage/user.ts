@@ -1,6 +1,34 @@
 import type { LoginInput, RegisterInput, User } from "../schemas/user";
 import { supabase } from "../supabase/client";
 
+function isProfilesRlsError(message: string): boolean {
+	const normalized = message.toLowerCase();
+	return (
+		normalized.includes("row-level security") && normalized.includes("profiles")
+	);
+}
+
+async function upsertProfileSafe(user: {
+	id: string;
+	email?: string | null;
+	created_at?: string;
+}, name: string): Promise<void> {
+	const { error } = await supabase.from("profiles").upsert({
+		id: user.id,
+		name,
+		email: user.email || "",
+		created_at: user.created_at,
+	});
+
+	if (!error) return;
+
+	if (isProfilesRlsError(error.message)) {
+		return;
+	}
+
+	throw normalizeAuthError(new Error(error.message));
+}
+
 function normalizeAuthError(error: unknown): Error {
 	if (error instanceof Error) {
 		const message = error.message.toLowerCase();
@@ -65,16 +93,7 @@ export async function createUser(data: RegisterInput): Promise<User> {
 		throw new Error("Registration failed");
 	}
 
-	const { error: profileError } = await supabase.from("profiles").upsert({
-		id: authUser.id,
-		name: data.name,
-		email: data.email,
-		created_at: authUser.created_at,
-	});
-
-	if (profileError) {
-		throw normalizeAuthError(new Error(profileError.message));
-	}
+	await upsertProfileSafe(authUser, data.name);
 
 	return mapSupabaseUserToAppUser(authUser, data.name);
 }
@@ -111,6 +130,11 @@ export async function authenticateUser(data: LoginInput): Promise<User> {
 			new Error(error?.message || "Invalid email or password"),
 		);
 	}
+
+	await upsertProfileSafe(
+		authData.user,
+		authData.user.email?.split("@")[0] || "Student",
+	);
 
 	const { data: profileData } = await supabase
 		.from("profiles")
