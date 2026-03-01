@@ -84,6 +84,8 @@ export default function AnalysisPage() {
 	const [activeTab, setActiveTab] = useState<"overview" | "insights">("overview");
 	const [aiSuccess, setAiSuccess] = useState<string | null>(null);
 	const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+	const [hasAttemptedAiThisSession, setHasAttemptedAiThisSession] =
+		useState(false);
 	const [courses, setCourses] = useState<Array<Awaited<ReturnType<typeof getUserCourses>>[number]>>([]);
 
 	useEffect(() => {
@@ -137,6 +139,7 @@ export default function AnalysisPage() {
 	const generateAiInsights = async () => {
 		if (!user) return;
 		setAiSuccess(null);
+		setHasAttemptedAiThisSession(true);
 
 		if (!isOnline) {
 			enqueuePendingAction(
@@ -197,6 +200,11 @@ export default function AnalysisPage() {
 	const formattedSyncDetail = lastAiSync ? formatAiSyncDetail(lastAiSync.detail) : "";
 	const shouldShowSyncDetail =
 		!!lastAiSync?.detail && !isTemporaryUnavailableDetail(lastAiSync.detail);
+	const shouldShowSyncStatus =
+		!!lastAiSync &&
+		(lastAiSync.status === "success" ||
+			!isTemporaryUnavailableDetail(lastAiSync.detail) ||
+			hasAttemptedAiThisSession);
 
 	return (
 		<div className="min-h-screen bg-base-200">
@@ -487,7 +495,7 @@ export default function AnalysisPage() {
 									</p>
 								)}
 
-								{lastAiSync && (
+								{shouldShowSyncStatus && lastAiSync && (
 									<p className="text-xs opacity-80">
 										Last AI sync: {new Date(lastAiSync.at).toLocaleString()} ·{" "}
 										{syncStatusLabel}
