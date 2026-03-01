@@ -21,6 +21,19 @@ import {
 	type AcademicBaseValues,
 } from "../lib/storage/user";
 import { calculateCGPA } from "../lib/utils/gpa";
+import { calculateRequiredExamScore } from "../lib/utils/grade-prediction";
+
+const TARGET_GRADE_THRESHOLDS: Record<string, number> = {
+	A: 70,
+	"B+": 65,
+	B: 60,
+	"C+": 55,
+	C: 50,
+	"D+": 45,
+	D: 40,
+	E: 35,
+	F: 0,
+};
 
 export default function CoursesPage() {
 	const router = useRouter();
@@ -40,6 +53,9 @@ export default function CoursesPage() {
 		title: "",
 		units: 3,
 		grade: "",
+		targetGrade: "",
+		currentScore: 0,
+		maxAssessmentScore: 30 as 30 | 40,
 		semester: "First" as "First" | "Second" | "Summer",
 		year: new Date().getFullYear(),
 		status: "in-progress" as "in-progress" | "completed",
@@ -104,6 +120,9 @@ export default function CoursesPage() {
 			title: "",
 			units: 3,
 			grade: "",
+			targetGrade: "",
+			currentScore: 0,
+			maxAssessmentScore: 30,
 			semester: "First",
 			year: new Date().getFullYear(),
 			status: "in-progress",
@@ -119,6 +138,9 @@ export default function CoursesPage() {
 			title: course.title,
 			units: course.units,
 			grade: course.grade || "",
+			targetGrade: course.targetGrade || "",
+			currentScore: course.currentScore ?? 0,
+			maxAssessmentScore: course.maxAssessmentScore ?? 30,
 			semester: course.semester,
 			year: course.year,
 			status: course.status,
@@ -138,9 +160,18 @@ export default function CoursesPage() {
 			const beforeCourses = getFlatCourses(coursesBySemester);
 			const previousCgpa = calculateCGPA(beforeCourses, academicBase);
 
+			if (
+				formData.status === "in-progress" &&
+				formData.currentScore > formData.maxAssessmentScore
+			) {
+				setError("Current score cannot exceed max assessment score.");
+				return;
+			}
+
 			const data = v.parse(CreateCourseSchema, {
 				...formData,
 				grade: formData.grade || undefined,
+				targetGrade: formData.targetGrade || undefined,
 			});
 
 			if (editingCourse) {
@@ -193,6 +224,22 @@ export default function CoursesPage() {
 	}
 
 	if (!user) return null;
+
+	const targetThreshold = formData.targetGrade
+		? TARGET_GRADE_THRESHOLDS[formData.targetGrade]
+		: undefined;
+	const maxExamScore = 100 - formData.maxAssessmentScore;
+	const examPrediction =
+		formData.status === "in-progress" &&
+		formData.targetGrade &&
+		targetThreshold !== undefined
+			? calculateRequiredExamScore({
+					targetGrade: formData.targetGrade,
+					targetGradeThreshold: targetThreshold,
+					currentScore: formData.currentScore,
+					maxExamScore,
+			  })
+			: null;
 
 	return (
 		<div className="min-h-screen bg-base-200">
@@ -249,6 +296,7 @@ export default function CoursesPage() {
 													<th>Units</th>
 													<th>Grade</th>
 													<th>Status</th>
+													<th>In-Progress Prediction</th>
 													<th>Actions</th>
 												</tr>
 											</thead>
@@ -276,6 +324,59 @@ export default function CoursesPage() {
 																<span className="badge badge-warning">
 																	In Progress
 																</span>
+															)}
+														</td>
+														<td className="max-w-xs">
+															{course.status === "in-progress" &&
+															course.targetGrade ? (
+																(() => {
+																	const threshold =
+																		TARGET_GRADE_THRESHOLDS[course.targetGrade];
+																	if (threshold === undefined) {
+																		return (
+																			<span className="text-xs opacity-70">-</span>
+																		);
+																	}
+
+																	const prediction = calculateRequiredExamScore({
+																		targetGrade: course.targetGrade,
+																		targetGradeThreshold: threshold,
+																		currentScore: course.currentScore ?? 0,
+																		maxExamScore: 100 - (course.maxAssessmentScore ?? 30),
+																	});
+
+																	if (!prediction.success) {
+																		return (
+																			<span className="text-xs text-error">Invalid prediction</span>
+																		);
+																	}
+
+																	if (prediction.isTargetAchievable) {
+																		return (
+																			<div className="text-xs">
+																				<div className="font-medium">
+																				Need {prediction.requiredExamScore?.toFixed(2)} / {100 - (course.maxAssessmentScore ?? 30)}
+																			</div>
+																				<div className="opacity-70">for target {course.targetGrade}</div>
+																			</div>
+																		);
+																	}
+
+																	return (
+																		<div className="text-xs text-warning">
+																			<div className="font-medium">Target {course.targetGrade} not reachable</div>
+																			{prediction.suggestion ? (
+																				<div>
+																					Try {prediction.suggestion.grade}: {prediction.suggestion.requiredExamScore.toFixed(2)} / {100 - (course.maxAssessmentScore ?? 30)}
+																				</div>
+																			) : (
+																				<div>No lower grade target achievable.</div>
+																			)}
+																		</div>
+																	);
+																})()
+															) : (
+																<span className="text-xs opacity-70">-</span>
 															)}
 														</td>
 														<td>
@@ -404,6 +505,102 @@ export default function CoursesPage() {
 									</select>
 								</div>
 							</div>
+
+							{formData.status === "in-progress" && (
+								<div className="card bg-base-200">
+									<div className="card-body p-4 space-y-4">
+										<h4 className="font-semibold">In-Progress Target Tracking</h4>
+
+										<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+											<div>
+												<label htmlFor="target-grade-select" className="label">
+													<span className="label-text">Target Grade</span>
+												</label>
+												<select
+													id="target-grade-select"
+													className="select select-bordered w-full"
+													value={formData.targetGrade}
+													onChange={(e) =>
+														setFormData({ ...formData, targetGrade: e.target.value })
+													}
+												>
+													<option value="">No target</option>
+													<option value="A">A</option>
+													<option value="B+">B+</option>
+													<option value="B">B</option>
+													<option value="C+">C+</option>
+													<option value="C">C</option>
+													<option value="D+">D+</option>
+													<option value="D">D</option>
+													<option value="E">E</option>
+													<option value="F">F</option>
+												</select>
+											</div>
+
+											<div>
+												<label htmlFor="current-score-input" className="label">
+													<span className="label-text">Current Score (CA)</span>
+												</label>
+												<input
+													id="current-score-input"
+													type="number"
+													className="input input-bordered w-full"
+													value={formData.currentScore}
+													onChange={(e) =>
+														setFormData({
+															...formData,
+															currentScore: Number(e.target.value),
+														})
+													}
+													min={0}
+													max={formData.maxAssessmentScore}
+												/>
+											</div>
+
+											<div>
+												<label htmlFor="max-assessment-select" className="label">
+													<span className="label-text">Max Assessment Score</span>
+												</label>
+												<select
+													id="max-assessment-select"
+													className="select select-bordered w-full"
+													value={formData.maxAssessmentScore}
+													onChange={(e) =>
+														setFormData({
+															...formData,
+															maxAssessmentScore: Number(e.target.value) as 30 | 40,
+														})
+													}
+												>
+													<option value={30}>30</option>
+													<option value={40}>40</option>
+												</select>
+											</div>
+										</div>
+
+										{examPrediction && examPrediction.success && formData.targetGrade && (
+											<div className="text-sm">
+												{examPrediction.isTargetAchievable ? (
+													<div className="alert alert-info py-2">
+														<span>
+															Need {examPrediction.requiredExamScore?.toFixed(2)} / {maxExamScore} in the final exam to reach {formData.targetGrade}.
+														</span>
+													</div>
+												) : (
+													<div className="alert alert-warning py-2">
+														<span>
+															Target {formData.targetGrade} needs {examPrediction.requiredExamScore?.toFixed(2)} / {maxExamScore}, which is above max exam score.
+															{examPrediction.suggestion
+																? ` Try ${examPrediction.suggestion.grade} with ${examPrediction.suggestion.requiredExamScore.toFixed(2)} / ${maxExamScore}.`
+																: ""}
+														</span>
+													</div>
+												)}
+											</div>
+										)}
+									</div>
+								</div>
+							)}
 
 							<div className="grid grid-cols-2 gap-4">
 								<div>
