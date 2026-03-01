@@ -1,6 +1,6 @@
 "use client";
 
-import { Trash2 } from "lucide-react";
+import { AlertCircle, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Navbar } from "../components/navbar";
@@ -8,6 +8,7 @@ import { OfflineBanner } from "../components/offline-banner";
 import { useAuth } from "../lib/hooks/use-auth";
 import type { Course } from "../lib/schemas/course";
 import { getUserCourses } from "../lib/storage/course";
+import { getUserTargetGpa, setUserTargetGpa } from "../lib/storage/user";
 import {
 	calculateCGPA,
 	getTotalCoursesCompleted,
@@ -18,6 +19,11 @@ export default function ProfilePage() {
 	const router = useRouter();
 	const { user, loading } = useAuth();
 	const [courses, setCourses] = useState<Course[]>([]);
+	const [targetGpa, setTargetGpa] = useState<number | null>(null);
+	const [targetGpaInput, setTargetGpaInput] = useState("");
+	const [goalMessage, setGoalMessage] = useState<string | null>(null);
+	const [goalError, setGoalError] = useState<string | null>(null);
+	const [isSavingGoal, setIsSavingGoal] = useState(false);
 
 	useEffect(() => {
 		if (!loading && !user) {
@@ -45,6 +51,32 @@ export default function ProfilePage() {
 		};
 	}, [user]);
 
+	useEffect(() => {
+		let isMounted = true;
+
+		const loadTarget = async () => {
+			if (!user) {
+				if (isMounted) {
+					setTargetGpa(null);
+					setTargetGpaInput("");
+				}
+				return;
+			}
+
+			const value = await getUserTargetGpa(user.id);
+			if (!isMounted) return;
+
+			setTargetGpa(value);
+			setTargetGpaInput(value !== null ? value.toFixed(2) : "");
+		};
+
+		void loadTarget();
+
+		return () => {
+			isMounted = false;
+		};
+	}, [user]);
+
 	if (loading) {
 		return (
 			<div className="min-h-screen flex items-center justify-center">
@@ -58,6 +90,52 @@ export default function ProfilePage() {
 	const cgpa = calculateCGPA(courses);
 	const totalCredits = getTotalCredits(courses);
 	const completedCourses = getTotalCoursesCompleted(courses);
+	const goalProgress = targetGpa ? Math.min((cgpa / targetGpa) * 100, 100) : 0;
+
+	const handleSaveTarget = async () => {
+		if (!user) return;
+
+		setGoalError(null);
+		setGoalMessage(null);
+
+		const trimmed = targetGpaInput.trim();
+		if (!trimmed) {
+			setIsSavingGoal(true);
+			try {
+				await setUserTargetGpa(user.id, null);
+				setTargetGpa(null);
+				setGoalMessage("Target GPA cleared.");
+			} catch (error) {
+				setGoalError(
+					error instanceof Error ? error.message : "Failed to clear target GPA.",
+				);
+			} finally {
+				setIsSavingGoal(false);
+			}
+			return;
+		}
+
+		const parsed = Number(trimmed);
+		if (!Number.isFinite(parsed) || parsed < 0 || parsed > 5) {
+			setGoalError("Target GPA must be a number between 0.00 and 5.00.");
+			return;
+		}
+
+		setIsSavingGoal(true);
+		try {
+			const normalized = Number(parsed.toFixed(2));
+			await setUserTargetGpa(user.id, normalized);
+			setTargetGpa(normalized);
+			setTargetGpaInput(normalized.toFixed(2));
+			setGoalMessage("Target GPA saved.");
+		} catch (error) {
+			setGoalError(
+				error instanceof Error ? error.message : "Failed to save target GPA.",
+			);
+		} finally {
+			setIsSavingGoal(false);
+		}
+	};
 
 	return (
 		<div className="min-h-screen bg-base-200">
@@ -107,6 +185,79 @@ export default function ProfilePage() {
 					</div>
 
 					<div className="lg:col-span-2 space-y-6">
+						<div className="card bg-base-100 shadow-xl">
+							<div className="card-body">
+								<h2 className="card-title">Academic Goal</h2>
+
+								{goalError && (
+									<div role="alert" className="alert alert-error">
+										<AlertCircle className="h-6 w-6 shrink-0" />
+										<span>{goalError}</span>
+									</div>
+								)}
+
+								{goalMessage && (
+									<div role="status" className="alert alert-success">
+										<span>{goalMessage}</span>
+									</div>
+								)}
+
+								<div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+									<div className="sm:col-span-2">
+										<label htmlFor="target-gpa-input" className="label">
+											<span className="label-text font-medium">Target GPA</span>
+										</label>
+										<input
+											id="target-gpa-input"
+											type="number"
+											className="input input-bordered w-full"
+											min={0}
+											max={5}
+											step={0.01}
+											placeholder="e.g. 4.20"
+											value={targetGpaInput}
+											onChange={(event) => setTargetGpaInput(event.target.value)}
+										/>
+									</div>
+									<button
+										type="button"
+										className="btn btn-primary"
+										onClick={() => void handleSaveTarget()}
+										disabled={isSavingGoal}
+									>
+										{isSavingGoal ? "Saving..." : "Save Target"}
+									</button>
+								</div>
+
+								{targetGpa !== null ? (
+									<div className="space-y-2">
+										<p className="text-sm opacity-80">
+											Current CGPA: <span className="font-semibold">{cgpa.toFixed(2)}</span>
+											 / Target: <span className="font-semibold">{targetGpa.toFixed(2)}</span>
+										</p>
+										<progress
+											className="progress progress-primary w-full"
+											value={goalProgress}
+											max={100}
+										/>
+										<p className="text-sm opacity-70">Goal progress: {goalProgress.toFixed(1)}%</p>
+										{completedCourses > 0 && cgpa < targetGpa && (
+											<div role="alert" className="alert alert-warning">
+												<AlertCircle className="h-6 w-6 shrink-0" />
+												<span>
+													Current CGPA is below your target by {(targetGpa - cgpa).toFixed(2)}.
+												</span>
+											</div>
+										)}
+									</div>
+								) : (
+									<p className="text-sm opacity-70">
+										Set a target GPA to track your progress and receive performance alerts.
+									</p>
+								)}
+							</div>
+						</div>
+
 						<div className="card bg-base-100 shadow-xl">
 							<div className="card-body">
 								<h2 className="card-title">Account Information</h2>

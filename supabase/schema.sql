@@ -7,8 +7,12 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text not null,
   name text not null,
+  target_gpa numeric(3,2) null check (target_gpa >= 0 and target_gpa <= 5),
   created_at timestamptz not null default now()
 );
+
+alter table public.profiles
+  add column if not exists target_gpa numeric(3,2) null check (target_gpa >= 0 and target_gpa <= 5);
 
 create table if not exists public.courses (
   id uuid primary key default gen_random_uuid(),

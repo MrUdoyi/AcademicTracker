@@ -29,6 +29,28 @@ async function upsertProfileSafe(user: {
 	throw normalizeAuthError(new Error(error.message));
 }
 
+async function ensureProfileForUser(userId: string): Promise<void> {
+	const { data: profileData } = await supabase
+		.from("profiles")
+		.select("id")
+		.eq("id", userId)
+		.maybeSingle();
+
+	if (profileData) return;
+
+	const { data: authData } = await supabase.auth.getUser();
+	if (!authData.user || authData.user.id !== userId) return;
+
+	await upsertProfileSafe(
+		{
+			id: authData.user.id,
+			email: authData.user.email,
+			created_at: authData.user.created_at,
+		},
+		authData.user.email?.split("@")[0] || "Student",
+	);
+}
+
 function normalizeAuthError(error: unknown): Error {
 	if (error instanceof Error) {
 		const message = error.message.toLowerCase();
@@ -173,6 +195,43 @@ export function setCurrentUser(_user: User): void {
  */
 export async function logout(): Promise<void> {
 	const { error } = await supabase.auth.signOut();
+	if (error) {
+		throw new Error(error.message);
+	}
+}
+
+/**
+ * Get user's target GPA
+ */
+export async function getUserTargetGpa(userId: string): Promise<number | null> {
+	await ensureProfileForUser(userId);
+
+	const { data, error } = await supabase
+		.from("profiles")
+		.select("target_gpa")
+		.eq("id", userId)
+		.maybeSingle();
+
+	if (error || !data) return null;
+
+	const value = data.target_gpa;
+	return typeof value === "number" ? value : null;
+}
+
+/**
+ * Set or clear user's target GPA
+ */
+export async function setUserTargetGpa(
+	userId: string,
+	targetGpa: number | null,
+): Promise<void> {
+	await ensureProfileForUser(userId);
+
+	const { error } = await supabase
+		.from("profiles")
+		.update({ target_gpa: targetGpa })
+		.eq("id", userId);
+
 	if (error) {
 		throw new Error(error.message);
 	}

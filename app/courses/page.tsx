@@ -15,6 +15,8 @@ import {
 	getCoursesBySemester,
 	updateCourse,
 } from "../lib/storage/course";
+import { getUserTargetGpa } from "../lib/storage/user";
+import { calculateCGPA } from "../lib/utils/gpa";
 
 export default function CoursesPage() {
 	const router = useRouter();
@@ -25,6 +27,8 @@ export default function CoursesPage() {
 	const [showModal, setShowModal] = useState(false);
 	const [editingCourse, setEditingCourse] = useState<Course | null>(null);
 	const [error, setError] = useState("");
+	const [targetGpa, setTargetGpa] = useState<number | null>(null);
+	const [gpaAlert, setGpaAlert] = useState<string | null>(null);
 
 	const [formData, setFormData] = useState({
 		courseCode: "",
@@ -37,10 +41,16 @@ export default function CoursesPage() {
 	});
 
 	const loadCourses = useCallback(async () => {
-		if (!user) return;
+		if (!user) return {} as Record<string, Course[]>;
 		const grouped = await getCoursesBySemester(user.id);
 		setCoursesBySemester(grouped);
+		return grouped;
 	}, [user]);
+
+	const getFlatCourses = useCallback(
+		(grouped: Record<string, Course[]>) => Object.values(grouped).flat(),
+		[],
+	);
 
 	useEffect(() => {
 		if (!loading && !user) {
@@ -52,6 +62,26 @@ export default function CoursesPage() {
 			void loadCourses();
 		}
 	}, [user, loading, router, loadCourses]);
+
+	useEffect(() => {
+		let isMounted = true;
+
+		const loadTarget = async () => {
+			if (!user) {
+				if (isMounted) setTargetGpa(null);
+				return;
+			}
+
+			const value = await getUserTargetGpa(user.id);
+			if (isMounted) setTargetGpa(value);
+		};
+
+		void loadTarget();
+
+		return () => {
+			isMounted = false;
+		};
+	}, [user]);
 
 	const openAddModal = () => {
 		setEditingCourse(null);
@@ -86,10 +116,14 @@ export default function CoursesPage() {
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setError("");
+		setGpaAlert(null);
 
 		if (!user) return;
 
 		try {
+			const beforeCourses = getFlatCourses(coursesBySemester);
+			const previousCgpa = calculateCGPA(beforeCourses);
+
 			const data = v.parse(CreateCourseSchema, {
 				...formData,
 				grade: formData.grade || undefined,
@@ -102,7 +136,18 @@ export default function CoursesPage() {
 			}
 
 			setShowModal(false);
-			await loadCourses();
+			const groupedAfterSave = await loadCourses();
+
+			if (targetGpa !== null) {
+				const afterCourses = getFlatCourses(groupedAfterSave);
+				const newCgpa = calculateCGPA(afterCourses);
+
+				if (previousCgpa >= targetGpa && newCgpa < targetGpa) {
+					setGpaAlert(
+						`Performance alert: Your CGPA dropped from ${previousCgpa.toFixed(2)} to ${newCgpa.toFixed(2)}, below your target GPA of ${targetGpa.toFixed(2)}.`,
+					);
+				}
+			}
 		} catch (err) {
 			if (err instanceof v.ValiError) {
 				setError(err.issues[0].message);
@@ -156,6 +201,13 @@ export default function CoursesPage() {
 						Add Course
 					</button>
 				</div>
+
+				{gpaAlert && (
+					<div role="alert" className="alert alert-warning mb-6">
+						<AlertCircle className="h-6 w-6 shrink-0" />
+						<span>{gpaAlert}</span>
+					</div>
+				)}
 
 				{Object.keys(coursesBySemester).length === 0 ? (
 					<div className="card bg-base-100 shadow-xl">
