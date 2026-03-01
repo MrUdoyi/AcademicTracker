@@ -25,6 +25,10 @@ function toGrade(value: string | null): Grade | undefined {
 	return VALID_GRADES.includes(value as Grade) ? (value as Grade) : undefined;
 }
 
+function toMaxAssessmentScore(value: number | null): 30 | 40 {
+	return value === 40 ? 40 : 30;
+}
+
 function mapRowToCourse(row: CourseRow): Course {
 	return {
 		id: row.id,
@@ -35,7 +39,7 @@ function mapRowToCourse(row: CourseRow): Course {
 		grade: toGrade(row.grade),
 		targetGrade: toGrade(row.target_grade),
 		currentScore: row.current_score ?? 0,
-		maxAssessmentScore: row.max_assessment_score ?? 30,
+		maxAssessmentScore: toMaxAssessmentScore(row.max_assessment_score),
 		semester: row.semester,
 		year: row.year,
 		status: row.status,
