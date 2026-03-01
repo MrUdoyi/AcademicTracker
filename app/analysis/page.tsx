@@ -2,7 +2,7 @@
 
 import { AlertCircle, CheckCircle2, FileText, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
 	Bar,
 	BarChart,
@@ -25,11 +25,20 @@ import {
 	calculateCGPA,
 	calculateDegreeProgress,
 	generateInsights,
+	gradeToPoints,
 	getSemesterPerformance,
 	getTotalCoursesCompleted,
 	getTotalCredits,
 } from "../lib/utils/gpa";
 import { downloadTranscript } from "../lib/utils/pdf";
+
+type PerformanceLevel =
+	| "all"
+	| "excellent"
+	| "good"
+	| "average"
+	| "needs-improvement"
+	| "in-progress";
 
 function formatAiSyncDetail(detail: string): string {
 	if (detail.includes("Gemini API key is not configured")) {
@@ -60,6 +69,20 @@ function getAiSyncStatusLabel(
 	return "Failed";
 }
 
+function getCoursePerformanceLevel(
+	course: Awaited<ReturnType<typeof getUserCourses>>[number],
+): Exclude<PerformanceLevel, "all"> {
+	if (course.status === "in-progress" || !course.grade) {
+		return "in-progress";
+	}
+
+	const points = gradeToPoints(course.grade);
+	if (points >= 4.5) return "excellent";
+	if (points >= 4.0) return "good";
+	if (points >= 3.0) return "average";
+	return "needs-improvement";
+}
+
 export default function AnalysisPage() {
 	const router = useRouter();
 	const { user, loading } = useAuth();
@@ -86,6 +109,10 @@ export default function AnalysisPage() {
 	const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 	const [hasAttemptedAiThisSession, setHasAttemptedAiThisSession] =
 		useState(false);
+	const [selectedSemester, setSelectedSemester] = useState("all");
+	const [selectedCourse, setSelectedCourse] = useState("all");
+	const [selectedPerformance, setSelectedPerformance] =
+		useState<PerformanceLevel>("all");
 	const [courses, setCourses] = useState<Array<Awaited<ReturnType<typeof getUserCourses>>[number]>>([]);
 
 	useEffect(() => {
@@ -162,6 +189,57 @@ export default function AnalysisPage() {
 		}
 	};
 
+	const semesterOptions = useMemo(() => {
+		const values = Array.from(
+			new Set(courses.map((course) => `${course.semester} ${course.year}`)),
+		);
+
+		return values.sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+	}, [courses]);
+
+	const courseOptions = useMemo(() => {
+		const values = Array.from(new Set(courses.map((course) => course.courseCode)));
+		return values.sort((a, b) => a.localeCompare(b));
+	}, [courses]);
+
+	const filteredCourses = useMemo(
+		() =>
+			courses.filter((course) => {
+				const semesterLabel = `${course.semester} ${course.year}`;
+				const performanceLevel = getCoursePerformanceLevel(course);
+
+				const semesterMatch =
+					selectedSemester === "all" || semesterLabel === selectedSemester;
+				const courseMatch =
+					selectedCourse === "all" || course.courseCode === selectedCourse;
+				const performanceMatch =
+					selectedPerformance === "all" || performanceLevel === selectedPerformance;
+
+				return semesterMatch && courseMatch && performanceMatch;
+			}),
+		[courses, selectedSemester, selectedCourse, selectedPerformance],
+	);
+
+	const filteredSemesterPerformance = useMemo(
+		() => getSemesterPerformance(filteredCourses),
+		[filteredCourses],
+	);
+
+	const chartData = useMemo(
+		() =>
+			filteredSemesterPerformance.map((sem) => ({
+				name: `${sem.semester} ${sem.year}`,
+				gpa: Number(sem.gpa.toFixed(2)),
+			})),
+		[filteredSemesterPerformance],
+	);
+
+	const cgpa = calculateCGPA(filteredCourses);
+	const totalCredits = getTotalCredits(filteredCourses);
+	const completedCourses = getTotalCoursesCompleted(filteredCourses);
+	const degreeProgress = calculateDegreeProgress(totalCredits);
+	const insights = generateInsights(filteredCourses);
+
 	if (loading) {
 		return (
 			<div className="min-h-screen flex items-center justify-center">
@@ -182,17 +260,6 @@ export default function AnalysisPage() {
 			setIsGeneratingPDF(false);
 		}
 	};
-	const cgpa = calculateCGPA(courses);
-	const totalCredits = getTotalCredits(courses);
-	const completedCourses = getTotalCoursesCompleted(courses);
-	const degreeProgress = calculateDegreeProgress(totalCredits);
-	const semesterPerformance = getSemesterPerformance(courses);
-	const insights = generateInsights(courses);
-
-	const chartData = semesterPerformance.map((sem) => ({
-		name: `${sem.semester} ${sem.year}`,
-		gpa: Number(sem.gpa.toFixed(2)),
-	}));
 
 	const syncStatusLabel = lastAiSync
 		? getAiSyncStatusLabel(lastAiSync.status, lastAiSync.detail, aiInsights.length > 0)
@@ -259,6 +326,67 @@ export default function AnalysisPage() {
 
 				{activeTab === "overview" && (
 					<div className="space-y-6">
+						<div className="card bg-base-100 shadow-xl">
+							<div className="card-body gap-4">
+								<h2 className="card-title text-xl sm:text-2xl">Filters</h2>
+								<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+									<label className="form-control w-full">
+										<span className="label-text font-medium mb-1">Semester</span>
+										<select
+											className="select select-bordered w-full"
+											value={selectedSemester}
+											onChange={(event) => setSelectedSemester(event.target.value)}
+										>
+											<option value="all">All semesters</option>
+											{semesterOptions.map((semester) => (
+												<option key={semester} value={semester}>
+													{semester}
+												</option>
+											))}
+										</select>
+									</label>
+
+									<label className="form-control w-full">
+										<span className="label-text font-medium mb-1">Course</span>
+										<select
+											className="select select-bordered w-full"
+											value={selectedCourse}
+											onChange={(event) => setSelectedCourse(event.target.value)}
+										>
+											<option value="all">All courses</option>
+											{courseOptions.map((courseCode) => (
+												<option key={courseCode} value={courseCode}>
+													{courseCode}
+												</option>
+											))}
+										</select>
+									</label>
+
+									<label className="form-control w-full">
+										<span className="label-text font-medium mb-1">Performance</span>
+										<select
+											className="select select-bordered w-full"
+											value={selectedPerformance}
+											onChange={(event) =>
+												setSelectedPerformance(event.target.value as PerformanceLevel)
+											}
+										>
+											<option value="all">All levels</option>
+											<option value="excellent">Excellent (A / B+)</option>
+											<option value="good">Good (B)</option>
+											<option value="average">Average (C+ / C)</option>
+											<option value="needs-improvement">Needs improvement (D+ and below)</option>
+											<option value="in-progress">In progress</option>
+										</select>
+									</label>
+								</div>
+								<p className="text-sm opacity-70">
+									Showing {filteredCourses.length} of {courses.length} courses based on
+									current filters.
+								</p>
+							</div>
+						</div>
+
 						<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 							<div className="stats shadow">
 								<div className="stat">
@@ -326,7 +454,7 @@ export default function AnalysisPage() {
 									Semester Breakdown
 								</h2>
 								<div className="overflow-x-auto">
-									{semesterPerformance.length > 0 ? (
+									{filteredSemesterPerformance.length > 0 ? (
 										<table className="table">
 											<thead>
 												<tr>
@@ -337,7 +465,7 @@ export default function AnalysisPage() {
 												</tr>
 											</thead>
 											<tbody>
-												{semesterPerformance.map((sem) => (
+												{filteredSemesterPerformance.map((sem) => (
 													<tr key={`${sem.semester}-${sem.year}`}>
 														<td className="font-medium">{sem.semester}</td>
 														<td>{sem.year}</td>
@@ -373,12 +501,12 @@ export default function AnalysisPage() {
 									<div className="space-y-2">
 										{["A", "B+", "B", "C+", "C", "D+", "D", "E", "F"].map(
 											(grade) => {
-												const count = courses.filter(
+												const count = filteredCourses.filter(
 													(c) => c.grade === grade,
 												).length;
 												const percentage =
-													courses.length > 0
-														? (count / courses.length) * 100
+													filteredCourses.length > 0
+														? (count / filteredCourses.length) * 100
 														: 0;
 
 												return (
@@ -389,7 +517,7 @@ export default function AnalysisPage() {
 														<progress
 															className="progress progress-primary flex-1"
 															value={count}
-															max={courses.length || 1}
+															max={filteredCourses.length || 1}
 														/>
 														<span className="text-sm opacity-70 w-16 text-right">
 															{count} ({percentage.toFixed(0)}%)
@@ -417,7 +545,7 @@ export default function AnalysisPage() {
 											<div className="stat-title">In Progress</div>
 											<div className="stat-value text-warning">
 												{
-													courses.filter((c) => c.status === "in-progress")
+													filteredCourses.filter((c) => c.status === "in-progress")
 														.length
 												}
 											</div>
@@ -572,10 +700,10 @@ export default function AnalysisPage() {
 													✓ Strong course completion record
 												</li>
 											)}
-											{semesterPerformance.length >= 2 &&
-												semesterPerformance[semesterPerformance.length - 1]
+											{filteredSemesterPerformance.length >= 2 &&
+												filteredSemesterPerformance[filteredSemesterPerformance.length - 1]
 													.gpa >
-													semesterPerformance[semesterPerformance.length - 2]
+													filteredSemesterPerformance[filteredSemesterPerformance.length - 2]
 														.gpa && (
 													<li className="text-success">
 														✓ Improving trend in recent semester
@@ -591,16 +719,16 @@ export default function AnalysisPage() {
 											{cgpa < 3.0 && cgpa > 0 && (
 												<li className="text-warning">! CGPA needs attention</li>
 											)}
-											{courses.filter((c) => c.status === "in-progress")
+											{filteredCourses.filter((c) => c.status === "in-progress")
 												.length > 6 && (
 												<li className="text-warning">
 													! Heavy course load - monitor workload
 												</li>
 											)}
-											{semesterPerformance.length >= 2 &&
-												semesterPerformance[semesterPerformance.length - 1]
+											{filteredSemesterPerformance.length >= 2 &&
+												filteredSemesterPerformance[filteredSemesterPerformance.length - 1]
 													.gpa <
-													semesterPerformance[semesterPerformance.length - 2]
+													filteredSemesterPerformance[filteredSemesterPerformance.length - 2]
 														.gpa && (
 													<li className="text-warning">
 														! Recent GPA decline - review study habits
