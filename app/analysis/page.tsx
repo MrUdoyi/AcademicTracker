@@ -21,10 +21,10 @@ import { usePendingInsightsProcessor } from "../lib/hooks/use-pending-insights-p
 import { useInsightsSyncStatus } from "../lib/hooks/use-insights-sync-status";
 import { getUserCourses } from "../lib/storage/course";
 import { enqueuePendingAction } from "../lib/storage/queue";
+import { generateStudyTips } from "../lib/utils/recommendations";
 import {
 	calculateCGPA,
 	calculateDegreeProgress,
-	generateInsights,
 	gradeToPoints,
 	getSemesterPerformance,
 	getTotalCoursesCompleted,
@@ -238,7 +238,7 @@ export default function AnalysisPage() {
 	const totalCredits = getTotalCredits(filteredCourses);
 	const completedCourses = getTotalCoursesCompleted(filteredCourses);
 	const degreeProgress = calculateDegreeProgress(totalCredits);
-	const insights = generateInsights(filteredCourses);
+	const insights = generateStudyTips(filteredCourses);
 
 	if (loading) {
 		return (

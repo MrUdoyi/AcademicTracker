@@ -12,6 +12,7 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import { NotificationCenter } from "./notification-center";
 import { logout } from "../lib/storage/user";
 
 interface NavbarProps {
@@ -70,6 +71,8 @@ export function Navbar({ userName }: NavbarProps) {
 			</div>
 
 			<div className="navbar-end gap-2">
+				<NotificationCenter />
+
 				{userName && (
 					<div className="hidden md:flex items-center gap-2 px-3">
 						<span className="text-sm opacity-70">Welcome,</span>

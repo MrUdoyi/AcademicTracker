@@ -18,10 +18,10 @@ import { OfflineBanner } from "../components/offline-banner";
 import { useAuth } from "../lib/hooks/use-auth";
 import type { Course } from "../lib/schemas/course";
 import { getUserCourses } from "../lib/storage/course";
+import { generateStudyTips } from "../lib/utils/recommendations";
 import {
 	calculateCGPA,
 	calculateDegreeProgress,
-	generateInsights,
 	gradeToPoints,
 	getCoursesInProgress,
 	getSemesterPerformance,
@@ -138,7 +138,7 @@ export default function DashboardPage() {
 		[filteredSemesterPerformance],
 	);
 
-	const insights = generateInsights(filteredCourses);
+	const insights = generateStudyTips(filteredCourses);
 
 	if (loading) {
 		return (
