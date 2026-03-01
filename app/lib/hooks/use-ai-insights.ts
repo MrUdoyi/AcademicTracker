@@ -7,8 +7,10 @@ import {
 	DEFAULT_TOTAL_DEGREE_CREDITS,
 	getUserAcademicBase,
 	getUserGradingScale,
+	getUserTargetGpa,
 	getUserTotalDegreeCredits,
 } from "../storage/user";
+import { generatePersonalizedInsights } from "../utils/recommendations";
 import {
 	calculateCGPA,
 	getTotalCoursesCompleted,
@@ -54,33 +56,56 @@ export function useAiInsights(userId: string | null): UseAiInsightsReturn {
 		setError(null);
 
 		try {
-			const [courses, base, gradingScale, totalDegreeCredits] = await Promise.all([
+			const [courses, base, gradingScale, totalDegreeCredits, targetCGPA] = await Promise.all([
 				getUserCourses(userId),
 				getUserAcademicBase(userId),
 				getUserGradingScale(userId),
 				getUserTotalDegreeCredits(userId),
+				getUserTargetGpa(userId),
 			]);
 			const cgpa = calculateCGPA(courses, base, gradingScale);
 			const totalCredits = getTotalCredits(courses, base?.baseTotalCredits || 0);
 			const completedCourses = getTotalCoursesCompleted(courses);
+			const inProgressCourses = courses.filter(
+				(course) => course.status === "in-progress",
+			);
 			const normalizedScale = normalizeGradingScale(gradingScale);
 			const maxScaleWeight = normalizedScale[0]?.weight ?? 5;
+			const smartAdvisorInsights = generatePersonalizedInsights({
+				inProgressCourses,
+				targetCGPA,
+				gradingScale,
+			});
+			const smartAdvisorBlock = smartAdvisorInsights
+				.map((insight, index) => `${index + 1}. ${insight}`)
+				.join("\n");
 
 			const prompt = `As an academic advisor, analyze this student's academic performance and provide 3-5 specific, actionable insights:
 
 Current CGPA: ${cgpa.toFixed(2)} out of ${maxScaleWeight.toFixed(1)}
 Total Credits: ${totalCredits} out of ${totalDegreeCredits || DEFAULT_TOTAL_DEGREE_CREDITS}
 Completed Courses: ${completedCourses}
+In-Progress Courses: ${inProgressCourses.length}
+Target CGPA: ${targetCGPA !== null ? targetCGPA.toFixed(2) : "Not set"}
 
 Course Details:
 ${courses.map((c) => `- ${c.courseCode}: ${c.title}, Grade: ${c.grade || "In Progress"}, Units: ${c.units}, ${c.semester} ${c.year}`).join("\n")}
+
+Smart Advisor baseline insights (rule-based):
+${smartAdvisorBlock}
 
 Provide insights in a numbered list format. Focus on:
 1. Strengths and achievements
 2. Areas for improvement
 3. Specific recommendations for course selection
 4. Study strategies based on performance patterns
-5. Progress towards degree completion`;
+5. Progress towards degree completion
+
+Important constraints:
+- Build on the Smart Advisor baseline above; do not repeat it verbatim.
+- Every insight must reference at least one concrete course code or numeric academic metric.
+- Avoid generic advice like "study harder" without course-specific context.
+- Prioritize in-progress courses and the target CGPA trajectory.`;
 
 			const response = await fetch("/api/gemini", {
 				method: "POST",

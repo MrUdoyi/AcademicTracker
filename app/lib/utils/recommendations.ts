@@ -1,5 +1,6 @@
 import type { Course } from "../schemas/course";
 import type { GradingScale } from "../schemas/grading-scale";
+import { normalizeGradingScale } from "../schemas/grading-scale";
 import {
 	calculateCGPA,
 	type CgpaBaseValues,
@@ -66,4 +67,96 @@ export function generateStudyTips(
 	}
 
 	return tips.slice(0, 5);
+}
+
+interface PersonalizedInsightInput {
+	inProgressCourses: Course[];
+	targetCGPA: number | null;
+	gradingScale?: GradingScale | null;
+}
+
+export function generatePersonalizedInsights({
+	inProgressCourses,
+	targetCGPA,
+	gradingScale,
+}: PersonalizedInsightInput): string[] {
+	const insights: string[] = [];
+
+	if (!Array.isArray(inProgressCourses) || inProgressCourses.length === 0) {
+		return [
+			"Add at least one in-progress course to unlock Smart Advisor recommendations.",
+		];
+	}
+
+	if (targetCGPA === null || !Number.isFinite(targetCGPA)) {
+		insights.push(
+			"Set a Target CGPA to receive course-priority recommendations tied to your goal.",
+		);
+	}
+
+	const normalizedScale = normalizeGradingScale(gradingScale);
+
+	const closestBoundaryCourse = inProgressCourses
+		.map((course) => {
+			const currentScore = course.currentScore ?? 0;
+			const nextBoundary = normalizedScale
+				.filter((item) => item.minScore > currentScore)
+				.sort((a, b) => a.minScore - b.minScore)[0];
+
+			if (!nextBoundary) return null;
+
+			const pointsAway = Number((nextBoundary.minScore - currentScore).toFixed(2));
+			if (pointsAway >= 5) return null;
+
+			return {
+				course,
+				nextBoundary,
+				pointsAway,
+			};
+		})
+		.filter((value): value is NonNullable<typeof value> => value !== null)
+		.sort((a, b) => {
+			if (a.pointsAway !== b.pointsAway) return a.pointsAway - b.pointsAway;
+			return b.course.units - a.course.units;
+		})[0];
+
+	const highestLeverageCourse = [...inProgressCourses].sort(
+		(a, b) => b.units - a.units,
+	)[0];
+
+	if (closestBoundaryCourse && highestLeverageCourse) {
+		const targetText =
+			targetCGPA !== null && Number.isFinite(targetCGPA)
+				? targetCGPA.toFixed(2)
+				: "your target CGPA";
+
+		if (closestBoundaryCourse.course.id === highestLeverageCourse.id) {
+			insights.push(
+				`You are only ${closestBoundaryCourse.pointsAway.toFixed(2)} marks away from a '${closestBoundaryCourse.nextBoundary.grade}' in ${closestBoundaryCourse.course.courseCode}. Since it is a ${closestBoundaryCourse.course.units}-credit course, securing that '${closestBoundaryCourse.nextBoundary.grade}' will give you the biggest boost toward ${targetText}.`,
+			);
+		} else {
+			insights.push(
+				`You are only ${closestBoundaryCourse.pointsAway.toFixed(2)} marks away from a '${closestBoundaryCourse.nextBoundary.grade}' in ${closestBoundaryCourse.course.courseCode}. Focus revision there first for a quick grade jump.`,
+			);
+			insights.push(
+				`${highestLeverageCourse.courseCode} is your highest leverage course at ${highestLeverageCourse.units} credits. Prioritize it this week to maximize movement toward ${targetText}.`,
+			);
+		}
+	} else if (highestLeverageCourse) {
+		const targetText =
+			targetCGPA !== null && Number.isFinite(targetCGPA)
+				? targetCGPA.toFixed(2)
+				: "your target CGPA";
+		insights.push(
+			`${highestLeverageCourse.courseCode} carries the highest weight (${highestLeverageCourse.units} credits). Prioritize assignments and exam prep here to get the strongest impact toward ${targetText}.`,
+		);
+	}
+
+	if (insights.length === 0) {
+		insights.push(
+			"Your in-progress courses are not yet within 5 marks of an immediate grade boundary. Focus on your highest-credit course first, then reassess after your next assessment update.",
+		);
+	}
+
+	return insights.slice(0, 5);
 }

@@ -25,10 +25,11 @@ import {
 	DEFAULT_TOTAL_DEGREE_CREDITS,
 	getUserAcademicBase,
 	getUserGradingScale,
+	getUserTargetGpa,
 	getUserTotalDegreeCredits,
 	type AcademicBaseValues,
 } from "../lib/storage/user";
-import { generateStudyTips } from "../lib/utils/recommendations";
+import { generatePersonalizedInsights } from "../lib/utils/recommendations";
 import {
 	calculateCGPA,
 	calculateDegreeProgress,
@@ -70,6 +71,7 @@ export default function DashboardPage() {
 	const [totalDegreeCredits, setTotalDegreeCredits] = useState<number>(
 		DEFAULT_TOTAL_DEGREE_CREDITS,
 	);
+	const [targetCgpa, setTargetCgpa] = useState<number | null>(null);
 	const [selectedSemester, setSelectedSemester] = useState("all");
 	const [selectedCourse, setSelectedCourse] = useState("all");
 	const [selectedPerformance, setSelectedPerformance] =
@@ -91,21 +93,24 @@ export default function DashboardPage() {
 					setAcademicBase(null);
 					setGradingScale(null);
 					setTotalDegreeCredits(DEFAULT_TOTAL_DEGREE_CREDITS);
+					setTargetCgpa(null);
 				}
 				return;
 			}
 
-			const [userCourses, base, scale, degreeCredits] = await Promise.all([
+			const [userCourses, base, scale, degreeCredits, savedTargetCgpa] = await Promise.all([
 				getUserCourses(user.id),
 				getUserAcademicBase(user.id),
 				getUserGradingScale(user.id),
 				getUserTotalDegreeCredits(user.id),
+				getUserTargetGpa(user.id),
 			]);
 			if (isMounted) {
 				setCourses(userCourses);
 				setAcademicBase(base);
 				setGradingScale(scale);
 				setTotalDegreeCredits(degreeCredits);
+				setTargetCgpa(savedTargetCgpa);
 			}
 		};
 
@@ -172,7 +177,15 @@ export default function DashboardPage() {
 		[filteredSemesterPerformance],
 	);
 
-	const insights = generateStudyTips(filteredCourses, academicBase, gradingScale);
+	const smartInsights = useMemo(
+		() =>
+			generatePersonalizedInsights({
+				inProgressCourses: inProgressCourseList,
+				targetCGPA: targetCgpa,
+				gradingScale,
+			}),
+		[inProgressCourseList, targetCgpa, gradingScale],
+	);
 
 	if (loading) {
 		return (
@@ -455,11 +468,11 @@ export default function DashboardPage() {
 							<div className="card-body">
 								<h2 className="card-title gap-2">
 									<Sparkles className="w-5 h-5" />
-									AI Insights
+									Smart Advisor
 								</h2>
-								{insights.length > 0 ? (
+								{smartInsights.length > 0 ? (
 									<ul className="space-y-2">
-										{insights.map((insight, idx) => (
+										{smartInsights.map((insight, idx) => (
 											<li key={idx} className="text-sm">
 												• {insight}
 											</li>
@@ -467,7 +480,7 @@ export default function DashboardPage() {
 									</ul>
 								) : (
 									<p className="text-sm">
-										Complete some courses to get personalized insights
+										Add and update in-progress courses to receive Smart Advisor insights.
 									</p>
 								)}
 							</div>
