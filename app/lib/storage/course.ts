@@ -7,6 +7,7 @@ type CourseRow = {
 	course_code: string;
 	title: string;
 	units: number;
+	level: number | null;
 	grade: string | null;
 	target_grade: string | null;
 	current_score: number | null;
@@ -29,6 +30,13 @@ function toMaxAssessmentScore(value: number | null): 30 | 40 {
 	return value === 40 ? 40 : 30;
 }
 
+function toCourseLevel(value: number | null): number {
+	if (typeof value !== "number" || !Number.isFinite(value)) return 100;
+	const normalized = Math.trunc(value);
+	if (normalized < 100 || normalized > 900) return 100;
+	return normalized;
+}
+
 function mapRowToCourse(row: CourseRow): Course {
 	return {
 		id: row.id,
@@ -36,6 +44,7 @@ function mapRowToCourse(row: CourseRow): Course {
 		courseCode: row.course_code,
 		title: row.title,
 		units: row.units,
+			level: toCourseLevel(row.level),
 		grade: toGrade(row.grade),
 		targetGrade: toGrade(row.target_grade),
 		currentScore: row.current_score ?? 0,
@@ -98,6 +107,7 @@ export async function createCourse(userId: string, data: CreateCourseInput): Pro
 		course_code: data.courseCode,
 		title: data.title,
 		units: data.units,
+		level: data.level ?? 100,
 		grade: data.grade || null,
 		target_grade: data.targetGrade || null,
 		current_score: data.currentScore ?? 0,
@@ -134,6 +144,7 @@ export async function updateCourse(
 	if (data.courseCode !== undefined) updates.course_code = data.courseCode;
 	if (data.title !== undefined) updates.title = data.title;
 	if (data.units !== undefined) updates.units = data.units;
+	if (data.level !== undefined) updates.level = data.level;
 	if (data.grade !== undefined) updates.grade = data.grade || null;
 	if (data.targetGrade !== undefined) updates.target_grade = data.targetGrade || null;
 	if (data.currentScore !== undefined) updates.current_score = data.currentScore;

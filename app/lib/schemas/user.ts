@@ -7,6 +7,8 @@ export const UserSchema = v.object({
 	name: v.string(),
 	password: v.string(),
 	totalDegreeCredits: v.optional(v.number()),
+	currentLevel: v.optional(v.number()),
+	currentSemester: v.optional(v.picklist(["First", "Second", "Summer"])),
 	createdAt: v.string(),
 });
 
@@ -37,4 +39,6 @@ export type RegisterInput = v.InferInput<typeof RegisterSchema>;
 export type UserWithGradingScale = User & { gradingScale?: GradingScale | null };
 export interface UserProfileSettings {
 	totalDegreeCredits: number;
+	currentLevel: number;
+	currentSemester: "First" | "Second" | "Summer";
 }

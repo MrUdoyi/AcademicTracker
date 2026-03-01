@@ -12,12 +12,16 @@ import type { GradingScale } from "../lib/schemas/grading-scale";
 import { normalizeGradingScale } from "../lib/schemas/grading-scale";
 import { getUserCourses } from "../lib/storage/course";
 import {
+	DEFAULT_CURRENT_LEVEL,
+	DEFAULT_CURRENT_SEMESTER,
 	DEFAULT_TOTAL_DEGREE_CREDITS,
 	getUserAcademicBase,
+	getUserCurrentAcademicContext,
 	getUserGradingScale,
 	getUserTargetGpa,
 	getUserTotalDegreeCredits,
 	setUserAcademicBase,
+	setUserCurrentAcademicContext,
 	setUserTotalDegreeCredits,
 	setUserTargetGpa,
 	type AcademicBaseValues,
@@ -53,6 +57,21 @@ export default function ProfilePage() {
 	);
 	const [degreeCreditsError, setDegreeCreditsError] = useState<string | null>(null);
 	const [isSavingDegreeCredits, setIsSavingDegreeCredits] = useState(false);
+	const [currentLevel, setCurrentLevel] = useState<number>(DEFAULT_CURRENT_LEVEL);
+	const [currentSemester, setCurrentSemester] = useState<
+		"First" | "Second" | "Summer"
+	>(DEFAULT_CURRENT_SEMESTER);
+	const [currentLevelInput, setCurrentLevelInput] = useState(
+		String(DEFAULT_CURRENT_LEVEL),
+	);
+	const [currentSemesterInput, setCurrentSemesterInput] = useState<
+		"First" | "Second" | "Summer"
+	>(DEFAULT_CURRENT_SEMESTER);
+	const [currentContextMessage, setCurrentContextMessage] = useState<string | null>(
+		null,
+	);
+	const [currentContextError, setCurrentContextError] = useState<string | null>(null);
+	const [isSavingCurrentContext, setIsSavingCurrentContext] = useState(false);
 
 	useEffect(() => {
 		if (!loading && !user) {
@@ -90,16 +109,21 @@ export default function ProfilePage() {
 					setGradingScale(null);
 					setTotalDegreeCredits(DEFAULT_TOTAL_DEGREE_CREDITS);
 					setTotalDegreeCreditsInput(String(DEFAULT_TOTAL_DEGREE_CREDITS));
+					setCurrentLevel(DEFAULT_CURRENT_LEVEL);
+					setCurrentSemester(DEFAULT_CURRENT_SEMESTER);
+					setCurrentLevelInput(String(DEFAULT_CURRENT_LEVEL));
+					setCurrentSemesterInput(DEFAULT_CURRENT_SEMESTER);
 					setBaseCgpaInput("");
 					setBaseCreditsInput("");
 				}
 				return;
 			}
 
-			const [base, scale, degreeCredits] = await Promise.all([
+			const [base, scale, degreeCredits, currentContext] = await Promise.all([
 				getUserAcademicBase(user.id),
 				getUserGradingScale(user.id),
 				getUserTotalDegreeCredits(user.id),
+				getUserCurrentAcademicContext(user.id),
 			]);
 			if (!isMounted) return;
 
@@ -107,6 +131,10 @@ export default function ProfilePage() {
 			setGradingScale(scale);
 			setTotalDegreeCredits(degreeCredits);
 			setTotalDegreeCreditsInput(String(degreeCredits));
+			setCurrentLevel(currentContext.currentLevel);
+			setCurrentSemester(currentContext.currentSemester);
+			setCurrentLevelInput(String(currentContext.currentLevel));
+			setCurrentSemesterInput(currentContext.currentSemester);
 			setBaseCgpaInput(base ? base.baseCgpa.toFixed(2) : "");
 			setBaseCreditsInput(base ? String(base.baseTotalCredits) : "");
 		};
@@ -188,6 +216,45 @@ export default function ProfilePage() {
 			);
 		} finally {
 			setIsSavingDegreeCredits(false);
+		}
+	};
+
+	const handleSaveCurrentAcademicContext = async () => {
+		if (!user) return;
+
+		setCurrentContextError(null);
+		setCurrentContextMessage(null);
+
+		const parsedLevel = Number(currentLevelInput.trim());
+		if (!Number.isFinite(parsedLevel) || !Number.isInteger(parsedLevel)) {
+			setCurrentContextError("Current Level must be a whole number (e.g. 100, 200, 300).");
+			return;
+		}
+
+		if (parsedLevel < 100 || parsedLevel > 900) {
+			setCurrentContextError("Current Level must be between 100 and 900.");
+			return;
+		}
+
+		setIsSavingCurrentContext(true);
+		try {
+			await setUserCurrentAcademicContext(user.id, {
+				currentLevel: parsedLevel,
+				currentSemester: currentSemesterInput,
+			});
+
+			setCurrentLevel(parsedLevel);
+			setCurrentSemester(currentSemesterInput);
+			setCurrentLevelInput(String(parsedLevel));
+			setCurrentContextMessage("Current academic context saved.");
+		} catch (error) {
+			setCurrentContextError(
+				error instanceof Error
+					? error.message
+					: "Failed to save current academic context.",
+			);
+		} finally {
+			setIsSavingCurrentContext(false);
 		}
 	};
 
@@ -502,6 +569,71 @@ export default function ProfilePage() {
 						<div className="card bg-base-100 shadow-xl">
 							<div className="card-body">
 								<h2 className="card-title">Degree Requirement</h2>
+
+								{currentContextError && (
+									<div role="alert" className="alert alert-error">
+										<AlertCircle className="h-6 w-6 shrink-0" />
+										<span>{currentContextError}</span>
+									</div>
+								)}
+
+								{currentContextMessage && (
+									<div role="status" className="alert alert-success">
+										<span>{currentContextMessage}</span>
+									</div>
+								)}
+
+								<div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+									<div>
+										<label htmlFor="current-level-input" className="label">
+											<span className="label-text font-medium">Current Level</span>
+										</label>
+										<input
+											id="current-level-input"
+											type="number"
+											className="input input-bordered w-full"
+											min={100}
+											max={900}
+											step={100}
+											placeholder="e.g. 300"
+											value={currentLevelInput}
+											onChange={(event) => setCurrentLevelInput(event.target.value)}
+										/>
+									</div>
+
+									<div>
+										<label htmlFor="current-semester-select" className="label">
+											<span className="label-text font-medium">Current Semester</span>
+										</label>
+										<select
+											id="current-semester-select"
+											className="select select-bordered w-full"
+											value={currentSemesterInput}
+											onChange={(event) =>
+												setCurrentSemesterInput(
+													event.target.value as "First" | "Second" | "Summer",
+												)
+											}
+										>
+											<option value="First">First</option>
+											<option value="Second">Second</option>
+											<option value="Summer">Summer</option>
+										</select>
+									</div>
+
+									<button
+										type="button"
+										className="btn btn-primary"
+										onClick={() => void handleSaveCurrentAcademicContext()}
+										disabled={isSavingCurrentContext}
+									>
+										{isSavingCurrentContext ? "Saving..." : "Save Current"}
+									</button>
+								</div>
+
+								<p className="text-xs opacity-70">
+									Current setting: {currentLevel} Level, {currentSemester} Semester
+								</p>
 
 								{degreeCreditsError && (
 									<div role="alert" className="alert alert-error">

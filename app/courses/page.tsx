@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, Plus } from "lucide-react";
+import { AlertCircle, Lock, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import * as v from "valibot";
@@ -16,7 +16,10 @@ import {
 	updateCourse,
 } from "../lib/storage/course";
 import {
+	DEFAULT_CURRENT_LEVEL,
+	DEFAULT_CURRENT_SEMESTER,
 	getUserAcademicBase,
+	getUserCurrentAcademicContext,
 	getUserGradingScale,
 	getUserTargetGpa,
 	type AcademicBaseValues,
@@ -24,6 +27,12 @@ import {
 import type { GradingScale } from "../lib/schemas/grading-scale";
 import { calculateCGPA } from "../lib/utils/gpa";
 import { calculateRequiredExamScore } from "../lib/utils/grade-prediction";
+
+const SEMESTER_ORDER: Record<"First" | "Second" | "Summer", number> = {
+	First: 1,
+	Second: 2,
+	Summer: 3,
+};
 
 export default function CoursesPage() {
 	const router = useRouter();
@@ -38,16 +47,30 @@ export default function CoursesPage() {
 	const [academicBase, setAcademicBase] = useState<AcademicBaseValues | null>(null);
 	const [gradingScale, setGradingScale] = useState<GradingScale | null>(null);
 	const [gpaAlert, setGpaAlert] = useState<string | null>(null);
+	const [currentLevel, setCurrentLevel] = useState<number>(DEFAULT_CURRENT_LEVEL);
+	const [currentSemester, setCurrentSemester] = useState<
+		"First" | "Second" | "Summer"
+	>(DEFAULT_CURRENT_SEMESTER);
+
+	const isHistoricalCourse = useCallback(
+		(level: number, semester: "First" | "Second" | "Summer") => {
+			if (level < currentLevel) return true;
+			if (level > currentLevel) return false;
+			return SEMESTER_ORDER[semester] < SEMESTER_ORDER[currentSemester];
+		},
+		[currentLevel, currentSemester],
+	);
 
 	const [formData, setFormData] = useState({
 		courseCode: "",
 		title: "",
 		units: 3,
+		level: DEFAULT_CURRENT_LEVEL,
 		grade: "",
 		targetGrade: "",
 		currentScore: 0,
 		maxAssessmentScore: 30 as 30 | 40,
-		semester: "First" as "First" | "Second" | "Summer",
+		semester: DEFAULT_CURRENT_SEMESTER as "First" | "Second" | "Summer",
 		year: new Date().getFullYear(),
 		status: "in-progress" as "in-progress" | "completed",
 	});
@@ -84,19 +107,24 @@ export default function CoursesPage() {
 					setTargetGpa(null);
 					setAcademicBase(null);
 					setGradingScale(null);
+					setCurrentLevel(DEFAULT_CURRENT_LEVEL);
+					setCurrentSemester(DEFAULT_CURRENT_SEMESTER);
 				}
 				return;
 			}
 
-			const [target, base, scale] = await Promise.all([
+			const [target, base, scale, currentContext] = await Promise.all([
 				getUserTargetGpa(user.id),
 				getUserAcademicBase(user.id),
 				getUserGradingScale(user.id),
+				getUserCurrentAcademicContext(user.id),
 			]);
 			if (isMounted) {
 				setTargetGpa(target);
 				setAcademicBase(base);
 				setGradingScale(scale);
+				setCurrentLevel(currentContext.currentLevel);
+				setCurrentSemester(currentContext.currentSemester);
 			}
 		};
 
@@ -113,11 +141,12 @@ export default function CoursesPage() {
 			courseCode: "",
 			title: "",
 			units: 3,
+			level: currentLevel,
 			grade: "",
 			targetGrade: "",
 			currentScore: 0,
 			maxAssessmentScore: 30,
-			semester: "First",
+			semester: currentSemester,
 			year: new Date().getFullYear(),
 			status: "in-progress",
 		});
@@ -131,13 +160,16 @@ export default function CoursesPage() {
 			courseCode: course.courseCode,
 			title: course.title,
 			units: course.units,
+			level: course.level ?? currentLevel,
 			grade: course.grade || "",
 			targetGrade: course.targetGrade || "",
 			currentScore: course.currentScore ?? 0,
 			maxAssessmentScore: course.maxAssessmentScore ?? 30,
 			semester: course.semester,
 			year: course.year,
-			status: course.status,
+			status: isHistoricalCourse(course.level ?? currentLevel, course.semester)
+				? "completed"
+				: course.status,
 		});
 		setError("");
 		setShowModal(true);
@@ -151,6 +183,10 @@ export default function CoursesPage() {
 		if (!user) return;
 
 		try {
+			const historicalByContext = isHistoricalCourse(
+				formData.level,
+				formData.semester,
+			);
 			const beforeCourses = getFlatCourses(coursesBySemester);
 			const previousCgpa = calculateCGPA(beforeCourses, academicBase, gradingScale);
 
@@ -164,6 +200,7 @@ export default function CoursesPage() {
 
 			const data = v.parse(CreateCourseSchema, {
 				...formData,
+				status: historicalByContext ? "completed" : formData.status,
 				grade: formData.grade || undefined,
 				targetGrade: formData.targetGrade || undefined,
 			});
@@ -218,6 +255,8 @@ export default function CoursesPage() {
 	}
 
 	if (!user) return null;
+
+	const isHistoricalSelection = isHistoricalCourse(formData.level, formData.semester);
 
 	const maxExamScore = 100 - formData.maxAssessmentScore;
 	const examPrediction =
@@ -284,6 +323,7 @@ export default function CoursesPage() {
 													<th>Code</th>
 													<th>Title</th>
 													<th>Units</th>
+													<th>Level</th>
 													<th>Grade</th>
 													<th>Status</th>
 													<th>In-Progress Prediction</th>
@@ -296,6 +336,7 @@ export default function CoursesPage() {
 														<td className="font-medium">{course.courseCode}</td>
 														<td>{course.title}</td>
 														<td>{course.units}</td>
+														<td>{course.level ?? "-"}</td>
 														<td>
 															{course.grade ? (
 																<span className="badge badge-primary">
@@ -307,7 +348,10 @@ export default function CoursesPage() {
 														</td>
 														<td>
 															{course.status === "completed" ? (
-																<span className="badge badge-success">
+																<span className="badge badge-success gap-1">
+																	{isHistoricalCourse(course.level ?? currentLevel, course.semester) && (
+																		<Lock className="w-3 h-3" />
+																	)}
 																	Completed
 																</span>
 															) : (
@@ -464,6 +508,36 @@ export default function CoursesPage() {
 								</div>
 
 								<div>
+									<label htmlFor="level-input" className="label">
+										<span className="label-text">Level</span>
+									</label>
+									<input
+										id="level-input"
+										type="number"
+										className="input input-bordered w-full"
+										value={formData.level}
+										onChange={(e) => {
+											const nextLevel = Number(e.target.value);
+											setFormData((prev) => {
+												const forcedCompleted = isHistoricalCourse(
+													nextLevel,
+													prev.semester,
+												);
+												return {
+													...prev,
+													level: nextLevel,
+													status: forcedCompleted ? "completed" : prev.status,
+												};
+											});
+										}}
+										min={100}
+										max={900}
+										step={100}
+										required
+									/>
+								</div>
+
+								<div>
 									<label htmlFor="grade-select" className="label">
 										<span className="label-text">Grade</span>
 									</label>
@@ -594,15 +668,23 @@ export default function CoursesPage() {
 										id="semester-select"
 										className="select select-bordered w-full"
 										value={formData.semester}
-										onChange={(e) =>
-											setFormData({
-												...formData,
-												semester: e.target.value as
-													| "First"
-													| "Second"
-													| "Summer",
-											})
-										}
+										onChange={(e) => {
+											const nextSemester = e.target.value as
+												| "First"
+												| "Second"
+												| "Summer";
+											setFormData((prev) => {
+												const forcedCompleted = isHistoricalCourse(
+													prev.level,
+													nextSemester,
+												);
+												return {
+													...prev,
+													semester: nextSemester,
+													status: forcedCompleted ? "completed" : prev.status,
+												};
+											});
+										}}
 										required
 									>
 										<option value="First">First</option>
@@ -640,18 +722,25 @@ export default function CoursesPage() {
 								<select
 									id="status-select"
 									className="select select-bordered w-full"
-									value={formData.status}
+									value={isHistoricalSelection ? "completed" : formData.status}
 									onChange={(e) =>
 										setFormData({
 											...formData,
 											status: e.target.value as "in-progress" | "completed",
 										})
 									}
+									disabled={isHistoricalSelection}
 									required
 								>
 									<option value="in-progress">In Progress</option>
 									<option value="completed">Completed</option>
 								</select>
+								{isHistoricalSelection && (
+									<p className="text-xs opacity-70 mt-1 flex items-center gap-1">
+										<Lock className="w-3 h-3" />
+										Historical courses are locked to Completed.
+									</p>
+								)}
 							</div>
 
 							<div className="modal-action">

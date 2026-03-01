@@ -30,6 +30,13 @@ export const CourseSchema = v.object({
 		v.minValue(1, "Units must be at least 1"),
 		v.maxValue(10, "Units must be at most 10"),
 	),
+	level: v.optional(
+		v.pipe(
+			v.number(),
+			v.minValue(100, "Level must be at least 100"),
+			v.maxValue(900, "Level must be at most 900"),
+		),
+	),
 	grade: v.optional(GradeSchema),
 	semester: v.picklist(
 		["First", "Second", "Summer"],
@@ -70,6 +77,13 @@ export const CreateCourseSchema = v.object({
 		v.number(),
 		v.minValue(1, "Units must be at least 1"),
 		v.maxValue(10, "Units must be at most 10"),
+	),
+	level: v.optional(
+		v.pipe(
+			v.number(),
+			v.minValue(100, "Level must be at least 100"),
+			v.maxValue(900, "Level must be at most 900"),
+		),
 	),
 	grade: v.optional(GradeSchema),
 	semester: v.picklist(

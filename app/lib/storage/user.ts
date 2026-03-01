@@ -12,6 +12,8 @@ export interface AcademicBaseValues {
 }
 
 export const DEFAULT_TOTAL_DEGREE_CREDITS = 120;
+export const DEFAULT_CURRENT_LEVEL = 100;
+export const DEFAULT_CURRENT_SEMESTER: "First" | "Second" | "Summer" = "First";
 
 function parseGradingScale(value: unknown): GradingScale | null {
 	if (!Array.isArray(value)) return null;
@@ -111,6 +113,8 @@ function mapSupabaseUserToAppUser(
 		name: profileName || user.email?.split("@")[0] || "Student",
 		password: "",
 		totalDegreeCredits: DEFAULT_TOTAL_DEGREE_CREDITS,
+		currentLevel: DEFAULT_CURRENT_LEVEL,
+		currentSemester: DEFAULT_CURRENT_SEMESTER,
 		createdAt: user.created_at || new Date().toISOString(),
 	};
 }
@@ -408,6 +412,77 @@ export async function setUserTotalDegreeCredits(
 	const { error } = await supabase
 		.from("profiles")
 		.update({ total_degree_credits: totalDegreeCredits })
+		.eq("id", userId);
+
+	if (error) {
+		throw new Error(error.message);
+	}
+}
+
+export interface CurrentAcademicContext {
+	currentLevel: number;
+	currentSemester: "First" | "Second" | "Summer";
+}
+
+function normalizeCurrentLevel(value: unknown): number {
+	if (typeof value !== "number" || !Number.isFinite(value)) {
+		return DEFAULT_CURRENT_LEVEL;
+	}
+
+	const normalized = Math.trunc(value);
+	if (normalized < 100 || normalized > 900) {
+		return DEFAULT_CURRENT_LEVEL;
+	}
+
+	return normalized;
+}
+
+function normalizeCurrentSemester(value: unknown): "First" | "Second" | "Summer" {
+	if (value === "First" || value === "Second" || value === "Summer") {
+		return value;
+	}
+	return DEFAULT_CURRENT_SEMESTER;
+}
+
+export async function getUserCurrentAcademicContext(
+	userId: string,
+): Promise<CurrentAcademicContext> {
+	await ensureProfileForUser(userId);
+
+	const { data, error } = await supabase
+		.from("profiles")
+		.select("current_level, current_semester")
+		.eq("id", userId)
+		.maybeSingle();
+
+	if (error || !data) {
+		return {
+			currentLevel: DEFAULT_CURRENT_LEVEL,
+			currentSemester: DEFAULT_CURRENT_SEMESTER,
+		};
+	}
+
+	return {
+		currentLevel: normalizeCurrentLevel(data.current_level),
+		currentSemester: normalizeCurrentSemester(data.current_semester),
+	};
+}
+
+export async function setUserCurrentAcademicContext(
+	userId: string,
+	context: CurrentAcademicContext,
+): Promise<void> {
+	await ensureProfileForUser(userId);
+
+	const normalizedLevel = normalizeCurrentLevel(context.currentLevel);
+	const normalizedSemester = normalizeCurrentSemester(context.currentSemester);
+
+	const { error } = await supabase
+		.from("profiles")
+		.update({
+			current_level: normalizedLevel,
+			current_semester: normalizedSemester,
+		})
 		.eq("id", userId);
 
 	if (error) {

@@ -9,6 +9,8 @@ create table if not exists public.profiles (
   name text not null,
   grading_scale jsonb null,
   total_degree_credits integer null check (total_degree_credits > 0),
+  current_level integer null check (current_level between 100 and 900),
+  current_semester text null check (current_semester in ('First','Second','Summer')),
   base_cgpa numeric(3,2) null check (base_cgpa >= 0 and base_cgpa <= 5),
   base_total_credits integer null check (base_total_credits >= 0),
   target_gpa numeric(3,2) null check (target_gpa >= 0 and target_gpa <= 5),
@@ -20,6 +22,12 @@ alter table public.profiles
 
 alter table public.profiles
   add column if not exists total_degree_credits integer null check (total_degree_credits > 0);
+
+alter table public.profiles
+  add column if not exists current_level integer null check (current_level between 100 and 900);
+
+alter table public.profiles
+  add column if not exists current_semester text null check (current_semester in ('First','Second','Summer'));
 
 alter table public.profiles
   add column if not exists base_cgpa numeric(3,2) null check (base_cgpa >= 0 and base_cgpa <= 5);
@@ -36,6 +44,7 @@ create table if not exists public.courses (
   course_code text not null,
   title text not null,
   units integer not null check (units between 1 and 10),
+  level integer not null default 100 check (level between 100 and 900),
   grade text null check (grade in ('A','B+','B','C+','C','D+','D','E','F')),
   target_grade text null check (target_grade in ('A','B+','B','C+','C','D+','D','E','F')),
   current_score numeric(6,2) not null default 0 check (current_score >= 0),
@@ -56,6 +65,9 @@ alter table public.courses
 
 alter table public.courses
   add column if not exists max_assessment_score integer not null default 30 check (max_assessment_score in (30, 40));
+
+alter table public.courses
+  add column if not exists level integer not null default 100 check (level between 100 and 900);
 
 create table if not exists public.insights (
   user_id uuid primary key references auth.users(id) on delete cascade,
