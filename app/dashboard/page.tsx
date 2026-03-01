@@ -18,6 +18,7 @@ import { OfflineBanner } from "../components/offline-banner";
 import { useAuth } from "../lib/hooks/use-auth";
 import type { Course } from "../lib/schemas/course";
 import { getUserCourses } from "../lib/storage/course";
+import { getUserAcademicBase, type AcademicBaseValues } from "../lib/storage/user";
 import { generateStudyTips } from "../lib/utils/recommendations";
 import {
 	calculateCGPA,
@@ -55,6 +56,7 @@ export default function DashboardPage() {
 	const { user, loading } = useAuth();
 	const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 	const [courses, setCourses] = useState<Course[]>([]);
+	const [academicBase, setAcademicBase] = useState<AcademicBaseValues | null>(null);
 	const [selectedSemester, setSelectedSemester] = useState("all");
 	const [selectedCourse, setSelectedCourse] = useState("all");
 	const [selectedPerformance, setSelectedPerformance] =
@@ -71,12 +73,21 @@ export default function DashboardPage() {
 
 		const loadCourses = async () => {
 			if (!user) {
-				if (isMounted) setCourses([]);
+				if (isMounted) {
+					setCourses([]);
+					setAcademicBase(null);
+				}
 				return;
 			}
 
-			const userCourses = await getUserCourses(user.id);
-			if (isMounted) setCourses(userCourses);
+			const [userCourses, base] = await Promise.all([
+				getUserCourses(user.id),
+				getUserAcademicBase(user.id),
+			]);
+			if (isMounted) {
+				setCourses(userCourses);
+				setAcademicBase(base);
+			}
 		};
 
 		void loadCourses();
@@ -86,8 +97,8 @@ export default function DashboardPage() {
 		};
 	}, [user]);
 
-	const cgpa = calculateCGPA(courses);
-	const totalCredits = getTotalCredits(courses);
+	const cgpa = calculateCGPA(courses, academicBase);
+	const totalCredits = getTotalCredits(courses, academicBase?.baseTotalCredits || 0);
 	const completedCourses = getTotalCoursesCompleted(courses);
 	const inProgressCourses = getCoursesInProgress(courses);
 	const degreeProgress = calculateDegreeProgress(totalCredits);
@@ -138,7 +149,7 @@ export default function DashboardPage() {
 		[filteredSemesterPerformance],
 	);
 
-	const insights = generateStudyTips(filteredCourses);
+	const insights = generateStudyTips(filteredCourses, academicBase);
 
 	if (loading) {
 		return (

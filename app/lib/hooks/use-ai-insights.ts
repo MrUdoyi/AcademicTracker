@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { GeminiResponse } from "../actions/gemini";
 import { getUserCourses } from "../storage/course";
 import { getCachedAiInsights, saveCachedAiInsights } from "../storage/insights";
+import { getUserAcademicBase } from "../storage/user";
 import {
 	calculateCGPA,
 	getTotalCoursesCompleted,
@@ -47,9 +48,12 @@ export function useAiInsights(userId: string | null): UseAiInsightsReturn {
 		setError(null);
 
 		try {
-			const courses = await getUserCourses(userId);
-			const cgpa = calculateCGPA(courses);
-			const totalCredits = getTotalCredits(courses);
+			const [courses, base] = await Promise.all([
+				getUserCourses(userId),
+				getUserAcademicBase(userId),
+			]);
+			const cgpa = calculateCGPA(courses, base);
+			const totalCredits = getTotalCredits(courses, base?.baseTotalCredits || 0);
 			const completedCourses = getTotalCoursesCompleted(courses);
 
 			const prompt = `As an academic advisor, analyze this student's academic performance and provide 3-5 specific, actionable insights:

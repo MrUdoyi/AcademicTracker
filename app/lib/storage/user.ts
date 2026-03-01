@@ -1,6 +1,11 @@
 import type { LoginInput, RegisterInput, User } from "../schemas/user";
 import { supabase } from "../supabase/client";
 
+export interface AcademicBaseValues {
+	baseCgpa: number;
+	baseTotalCredits: number;
+}
+
 function isProfilesRlsError(message: string): boolean {
 	const normalized = message.toLowerCase();
 	return (
@@ -230,6 +235,64 @@ export async function setUserTargetGpa(
 	const { error } = await supabase
 		.from("profiles")
 		.update({ target_gpa: targetGpa })
+		.eq("id", userId);
+
+	if (error) {
+		throw new Error(error.message);
+	}
+}
+
+/**
+ * Get user's quick-start academic base values
+ */
+export async function getUserAcademicBase(
+	userId: string,
+): Promise<AcademicBaseValues | null> {
+	await ensureProfileForUser(userId);
+
+	const { data, error } = await supabase
+		.from("profiles")
+		.select("base_cgpa, base_total_credits")
+		.eq("id", userId)
+		.maybeSingle();
+
+	if (error || !data) return null;
+
+	const baseCgpa = data.base_cgpa;
+	const baseTotalCredits = data.base_total_credits;
+
+	if (typeof baseCgpa !== "number" || typeof baseTotalCredits !== "number") {
+		return null;
+	}
+
+	return {
+		baseCgpa,
+		baseTotalCredits,
+	};
+}
+
+/**
+ * Set or clear user's quick-start academic base values
+ */
+export async function setUserAcademicBase(
+	userId: string,
+	base: AcademicBaseValues | null,
+): Promise<void> {
+	await ensureProfileForUser(userId);
+
+	const payload = base
+		? {
+				base_cgpa: Number(base.baseCgpa.toFixed(2)),
+				base_total_credits: Math.max(0, Math.trunc(base.baseTotalCredits)),
+		  }
+		: {
+				base_cgpa: null,
+				base_total_credits: null,
+		  };
+
+	const { error } = await supabase
+		.from("profiles")
+		.update(payload)
 		.eq("id", userId);
 
 	if (error) {

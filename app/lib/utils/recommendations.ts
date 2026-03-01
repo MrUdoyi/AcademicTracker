@@ -1,6 +1,7 @@
 import type { Course } from "../schemas/course";
 import {
 	calculateCGPA,
+	type CgpaBaseValues,
 	getCoursesInProgress,
 	getSemesterPerformance,
 	getTotalCoursesCompleted,
@@ -10,7 +11,10 @@ import {
 /**
  * Generate personalized study tips from academic trends and course outcomes.
  */
-export function generateStudyTips(courses: Course[]): string[] {
+export function generateStudyTips(
+	courses: Course[],
+	base?: CgpaBaseValues | null,
+): string[] {
 	const tips: string[] = [];
 	const completedCourses = courses.filter(
 		(course) => course.status === "completed" && course.grade,
@@ -25,7 +29,7 @@ export function generateStudyTips(courses: Course[]): string[] {
 		);
 	}
 
-	const cgpa = calculateCGPA(courses);
+	const cgpa = calculateCGPA(courses, base);
 	if (cgpa > 0 && cgpa < 3.0) {
 		tips.push(
 			"Your CGPA is currently below 3.0. Meet a course adviser and create a weekly recovery plan for your lowest-performing courses.",

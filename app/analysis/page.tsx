@@ -21,6 +21,7 @@ import { usePendingInsightsProcessor } from "../lib/hooks/use-pending-insights-p
 import { useInsightsSyncStatus } from "../lib/hooks/use-insights-sync-status";
 import { getUserCourses } from "../lib/storage/course";
 import { enqueuePendingAction } from "../lib/storage/queue";
+import { getUserAcademicBase, type AcademicBaseValues } from "../lib/storage/user";
 import { generateStudyTips } from "../lib/utils/recommendations";
 import {
 	calculateCGPA,
@@ -109,6 +110,7 @@ export default function AnalysisPage() {
 	const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 	const [hasAttemptedAiThisSession, setHasAttemptedAiThisSession] =
 		useState(false);
+	const [academicBase, setAcademicBase] = useState<AcademicBaseValues | null>(null);
 	const [selectedSemester, setSelectedSemester] = useState("all");
 	const [selectedCourse, setSelectedCourse] = useState("all");
 	const [selectedPerformance, setSelectedPerformance] =
@@ -126,12 +128,21 @@ export default function AnalysisPage() {
 
 		const loadCourses = async () => {
 			if (!user) {
-				if (isMounted) setCourses([]);
+				if (isMounted) {
+					setCourses([]);
+					setAcademicBase(null);
+				}
 				return;
 			}
 
-			const result = await getUserCourses(user.id);
-			if (isMounted) setCourses(result);
+			const [result, base] = await Promise.all([
+				getUserCourses(user.id),
+				getUserAcademicBase(user.id),
+			]);
+			if (isMounted) {
+				setCourses(result);
+				setAcademicBase(base);
+			}
 		};
 
 		void loadCourses();
@@ -234,11 +245,14 @@ export default function AnalysisPage() {
 		[filteredSemesterPerformance],
 	);
 
-	const cgpa = calculateCGPA(filteredCourses);
-	const totalCredits = getTotalCredits(filteredCourses);
+	const cgpa = calculateCGPA(filteredCourses, academicBase);
+	const totalCredits = getTotalCredits(
+		filteredCourses,
+		academicBase?.baseTotalCredits || 0,
+	);
 	const completedCourses = getTotalCoursesCompleted(filteredCourses);
 	const degreeProgress = calculateDegreeProgress(totalCredits);
-	const insights = generateStudyTips(filteredCourses);
+	const insights = generateStudyTips(filteredCourses, academicBase);
 
 	if (loading) {
 		return (

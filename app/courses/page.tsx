@@ -15,7 +15,11 @@ import {
 	getCoursesBySemester,
 	updateCourse,
 } from "../lib/storage/course";
-import { getUserTargetGpa } from "../lib/storage/user";
+import {
+	getUserAcademicBase,
+	getUserTargetGpa,
+	type AcademicBaseValues,
+} from "../lib/storage/user";
 import { calculateCGPA } from "../lib/utils/gpa";
 
 export default function CoursesPage() {
@@ -28,6 +32,7 @@ export default function CoursesPage() {
 	const [editingCourse, setEditingCourse] = useState<Course | null>(null);
 	const [error, setError] = useState("");
 	const [targetGpa, setTargetGpa] = useState<number | null>(null);
+	const [academicBase, setAcademicBase] = useState<AcademicBaseValues | null>(null);
 	const [gpaAlert, setGpaAlert] = useState<string | null>(null);
 
 	const [formData, setFormData] = useState({
@@ -66,17 +71,26 @@ export default function CoursesPage() {
 	useEffect(() => {
 		let isMounted = true;
 
-		const loadTarget = async () => {
+		const loadTargetAndBase = async () => {
 			if (!user) {
-				if (isMounted) setTargetGpa(null);
+				if (isMounted) {
+					setTargetGpa(null);
+					setAcademicBase(null);
+				}
 				return;
 			}
 
-			const value = await getUserTargetGpa(user.id);
-			if (isMounted) setTargetGpa(value);
+			const [target, base] = await Promise.all([
+				getUserTargetGpa(user.id),
+				getUserAcademicBase(user.id),
+			]);
+			if (isMounted) {
+				setTargetGpa(target);
+				setAcademicBase(base);
+			}
 		};
 
-		void loadTarget();
+		void loadTargetAndBase();
 
 		return () => {
 			isMounted = false;
@@ -122,7 +136,7 @@ export default function CoursesPage() {
 
 		try {
 			const beforeCourses = getFlatCourses(coursesBySemester);
-			const previousCgpa = calculateCGPA(beforeCourses);
+			const previousCgpa = calculateCGPA(beforeCourses, academicBase);
 
 			const data = v.parse(CreateCourseSchema, {
 				...formData,
@@ -140,7 +154,7 @@ export default function CoursesPage() {
 
 			if (targetGpa !== null) {
 				const afterCourses = getFlatCourses(groupedAfterSave);
-				const newCgpa = calculateCGPA(afterCourses);
+				const newCgpa = calculateCGPA(afterCourses, academicBase);
 
 				if (previousCgpa >= targetGpa && newCgpa < targetGpa) {
 					setGpaAlert(

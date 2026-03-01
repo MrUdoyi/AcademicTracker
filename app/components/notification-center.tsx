@@ -10,7 +10,7 @@ import {
 	getReadNotificationIds,
 	saveReadNotificationIds,
 } from "../lib/storage/notifications";
-import { getUserTargetGpa } from "../lib/storage/user";
+import { getUserAcademicBase, getUserTargetGpa } from "../lib/storage/user";
 import { calculateCGPA, getCoursesInProgress, gradeToPoints } from "../lib/utils/gpa";
 
 type ReminderType = "info" | "warning";
@@ -22,11 +22,15 @@ interface Reminder {
 	message: string;
 }
 
-function buildReminders(courses: Course[], targetGpa: number | null): Reminder[] {
+function buildReminders(
+	courses: Course[],
+	targetGpa: number | null,
+	base: { baseCgpa: number; baseTotalCredits: number } | null,
+): Reminder[] {
 	const reminders: Reminder[] = [];
 	const completed = courses.filter((course) => course.status === "completed");
 	const inProgress = getCoursesInProgress(courses);
-	const cgpa = calculateCGPA(courses);
+	const cgpa = calculateCGPA(courses, base);
 
 	if (courses.length === 0) {
 		reminders.push({
@@ -92,14 +96,15 @@ export function NotificationCenter() {
 				return;
 			}
 
-			const [courses, targetGpa] = await Promise.all([
+			const [courses, targetGpa, base] = await Promise.all([
 				getUserCourses(user.id),
 				getUserTargetGpa(user.id),
+				getUserAcademicBase(user.id),
 			]);
 
 			if (!isMounted) return;
 
-			const nextReminders = buildReminders(courses, targetGpa);
+			const nextReminders = buildReminders(courses, targetGpa, base);
 			const storedReadIds = getReadNotificationIds(user.id);
 			setReminders(nextReminders);
 			setReadIds(

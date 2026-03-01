@@ -8,7 +8,13 @@ import { OfflineBanner } from "../components/offline-banner";
 import { useAuth } from "../lib/hooks/use-auth";
 import type { Course } from "../lib/schemas/course";
 import { getUserCourses } from "../lib/storage/course";
-import { getUserTargetGpa, setUserTargetGpa } from "../lib/storage/user";
+import {
+	getUserAcademicBase,
+	getUserTargetGpa,
+	setUserAcademicBase,
+	setUserTargetGpa,
+	type AcademicBaseValues,
+} from "../lib/storage/user";
 import {
 	calculateCGPA,
 	getTotalCoursesCompleted,
@@ -24,6 +30,12 @@ export default function ProfilePage() {
 	const [goalMessage, setGoalMessage] = useState<string | null>(null);
 	const [goalError, setGoalError] = useState<string | null>(null);
 	const [isSavingGoal, setIsSavingGoal] = useState(false);
+	const [academicBase, setAcademicBase] = useState<AcademicBaseValues | null>(null);
+	const [baseCgpaInput, setBaseCgpaInput] = useState("");
+	const [baseCreditsInput, setBaseCreditsInput] = useState("");
+	const [baseMessage, setBaseMessage] = useState<string | null>(null);
+	const [baseError, setBaseError] = useState<string | null>(null);
+	const [isSavingBase, setIsSavingBase] = useState(false);
 
 	useEffect(() => {
 		if (!loading && !user) {
@@ -45,6 +57,34 @@ export default function ProfilePage() {
 		};
 
 		void loadCourses();
+
+		return () => {
+			isMounted = false;
+		};
+	}, [user]);
+
+	useEffect(() => {
+		let isMounted = true;
+
+		const loadAcademicBase = async () => {
+			if (!user) {
+				if (isMounted) {
+					setAcademicBase(null);
+					setBaseCgpaInput("");
+					setBaseCreditsInput("");
+				}
+				return;
+			}
+
+			const base = await getUserAcademicBase(user.id);
+			if (!isMounted) return;
+
+			setAcademicBase(base);
+			setBaseCgpaInput(base ? base.baseCgpa.toFixed(2) : "");
+			setBaseCreditsInput(base ? String(base.baseTotalCredits) : "");
+		};
+
+		void loadAcademicBase();
 
 		return () => {
 			isMounted = false;
@@ -87,10 +127,75 @@ export default function ProfilePage() {
 
 	if (!user) return null;
 
-	const cgpa = calculateCGPA(courses);
-	const totalCredits = getTotalCredits(courses);
+	const cgpa = calculateCGPA(courses, academicBase);
+	const totalCredits = getTotalCredits(courses, academicBase?.baseTotalCredits || 0);
 	const completedCourses = getTotalCoursesCompleted(courses);
 	const goalProgress = targetGpa ? Math.min((cgpa / targetGpa) * 100, 100) : 0;
+
+	const handleSaveAcademicBase = async () => {
+		if (!user) return;
+
+		setBaseError(null);
+		setBaseMessage(null);
+
+		const cgpaRaw = baseCgpaInput.trim();
+		const creditsRaw = baseCreditsInput.trim();
+
+		if (!cgpaRaw && !creditsRaw) {
+			setIsSavingBase(true);
+			try {
+				await setUserAcademicBase(user.id, null);
+				setAcademicBase(null);
+				setBaseMessage("Quick Start base values cleared.");
+			} catch (error) {
+				setBaseError(
+					error instanceof Error
+						? error.message
+						: "Failed to clear base values.",
+				);
+			} finally {
+				setIsSavingBase(false);
+			}
+			return;
+		}
+
+		const parsedCgpa = Number(cgpaRaw);
+		const parsedCredits = Number(creditsRaw);
+
+		if (!Number.isFinite(parsedCgpa) || parsedCgpa < 0 || parsedCgpa > 5) {
+			setBaseError("Base CGPA must be a number between 0.00 and 5.00.");
+			return;
+		}
+
+		if (
+			!Number.isFinite(parsedCredits) ||
+			parsedCredits < 0 ||
+			!Number.isInteger(parsedCredits)
+		) {
+			setBaseError("Base Total Credits must be a whole number greater than or equal to 0.");
+			return;
+		}
+
+		setIsSavingBase(true);
+		try {
+			const normalized: AcademicBaseValues = {
+				baseCgpa: Number(parsedCgpa.toFixed(2)),
+				baseTotalCredits: parsedCredits,
+			};
+
+			await setUserAcademicBase(user.id, normalized);
+			setAcademicBase(normalized);
+			setBaseCgpaInput(normalized.baseCgpa.toFixed(2));
+			setBaseCreditsInput(String(normalized.baseTotalCredits));
+			setBaseMessage("Quick Start base values saved.");
+		} catch (error) {
+			setBaseError(
+				error instanceof Error ? error.message : "Failed to save base values.",
+			);
+		} finally {
+			setIsSavingBase(false);
+		}
+	};
 
 	const handleSaveTarget = async () => {
 		if (!user) return;
@@ -185,6 +290,73 @@ export default function ProfilePage() {
 					</div>
 
 					<div className="lg:col-span-2 space-y-6">
+						<div className="card bg-base-100 shadow-xl">
+							<div className="card-body">
+								<h2 className="card-title">Quick Start (Higher Level)</h2>
+								<p className="text-sm opacity-70">
+									Enter your existing CGPA and total completed credits so new semesters
+									continue from your previous academic record.
+								</p>
+
+								{baseError && (
+									<div role="alert" className="alert alert-error">
+										<AlertCircle className="h-6 w-6 shrink-0" />
+										<span>{baseError}</span>
+									</div>
+								)}
+
+								{baseMessage && (
+									<div role="status" className="alert alert-success">
+										<span>{baseMessage}</span>
+									</div>
+								)}
+
+								<div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+									<div>
+										<label htmlFor="base-cgpa-input" className="label">
+											<span className="label-text font-medium">Base CGPA</span>
+										</label>
+										<input
+											id="base-cgpa-input"
+											type="number"
+											className="input input-bordered w-full"
+											min={0}
+											max={5}
+											step={0.01}
+											placeholder="e.g. 3.85"
+											value={baseCgpaInput}
+											onChange={(event) => setBaseCgpaInput(event.target.value)}
+										/>
+									</div>
+
+									<div>
+										<label htmlFor="base-credits-input" className="label">
+											<span className="label-text font-medium">Base Total Credits</span>
+										</label>
+										<input
+											id="base-credits-input"
+											type="number"
+											className="input input-bordered w-full"
+											min={0}
+											step={1}
+											placeholder="e.g. 84"
+											value={baseCreditsInput}
+											onChange={(event) => setBaseCreditsInput(event.target.value)}
+										/>
+									</div>
+
+									<button
+										type="button"
+										className="btn btn-primary"
+										onClick={() => void handleSaveAcademicBase()}
+										disabled={isSavingBase}
+									>
+										{isSavingBase ? "Saving..." : "Save Base"}
+									</button>
+								</div>
+							</div>
+						</div>
+
 						<div className="card bg-base-100 shadow-xl">
 							<div className="card-body">
 								<h2 className="card-title">Academic Goal</h2>

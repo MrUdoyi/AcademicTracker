@@ -1,5 +1,10 @@
 import type { Course, Grade } from "../schemas/course";
 
+export interface CgpaBaseValues {
+	baseCgpa: number;
+	baseTotalCredits: number;
+}
+
 /**
  * Grade point mapping based on standard 5-point scale
  */
@@ -68,17 +73,56 @@ export function calculateSemesterGPA(
 /**
  * Calculate CGPA (Cumulative GPA) for all completed courses
  */
-export function calculateCGPA(courses: Course[]): number {
-	return calculateGPA(courses);
+export function calculateCGPA(
+	courses: Course[],
+	base?: CgpaBaseValues | null,
+): number {
+	return calculateCGPAWithBase(courses, base);
+}
+
+/**
+ * Calculate CGPA with optional base CGPA + base credits (quick-start values)
+ */
+export function calculateCGPAWithBase(
+	courses: Course[],
+	base?: CgpaBaseValues | null,
+): number {
+	const completedCourses = courses.filter(
+		(course) => course.status === "completed" && course.grade,
+	);
+
+	let totalPoints = 0;
+	let totalUnits = 0;
+
+	for (const course of completedCourses) {
+		if (!course.grade) continue;
+		totalPoints += gradeToPoints(course.grade) * course.units;
+		totalUnits += course.units;
+	}
+
+	const baseCgpa = base?.baseCgpa ?? 0;
+	const baseTotalCredits = base?.baseTotalCredits ?? 0;
+	const hasValidBase = baseTotalCredits > 0 && baseCgpa >= 0;
+
+	if (hasValidBase) {
+		totalPoints += baseCgpa * baseTotalCredits;
+		totalUnits += baseTotalCredits;
+	}
+
+	if (totalUnits === 0) return 0;
+
+	return totalPoints / totalUnits;
 }
 
 /**
  * Get total credits/units completed
  */
-export function getTotalCredits(courses: Course[]): number {
-	return courses
+export function getTotalCredits(courses: Course[], baseTotalCredits: number = 0): number {
+	return (
+		courses
 		.filter((c) => c.status === "completed")
-		.reduce((sum, course) => sum + course.units, 0);
+		.reduce((sum, course) => sum + course.units, 0) + Math.max(0, baseTotalCredits)
+	);
 }
 
 /**
@@ -145,9 +189,12 @@ export function calculateDegreeProgress(
 /**
  * Generate academic insights based on performance
  */
-export function generateInsights(courses: Course[]): string[] {
+export function generateInsights(
+	courses: Course[],
+	base?: CgpaBaseValues | null,
+): string[] {
 	const insights: string[] = [];
-	const cgpa = calculateCGPA(courses);
+	const cgpa = calculateCGPAWithBase(courses, base);
 	const performance = getSemesterPerformance(courses);
 
 	if (cgpa >= 4.5) {
