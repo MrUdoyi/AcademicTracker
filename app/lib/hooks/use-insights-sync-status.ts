@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
 	getLastAiSyncStatus,
 	saveLastAiSyncStatus,
@@ -30,7 +30,7 @@ export function useInsightsSyncStatus(
 		})();
 	}, [userId]);
 
-	const recordSuccess = (detail: string) => {
+	const recordSuccess = useCallback((detail: string) => {
 		if (!userId) return;
 		void saveLastAiSyncStatus(userId, "success", detail);
 		setSyncStatus({
@@ -39,9 +39,9 @@ export function useInsightsSyncStatus(
 			at: new Date().toISOString(),
 			detail,
 		});
-	};
+	}, [userId]);
 
-	const recordError = (detail: string) => {
+	const recordError = useCallback((detail: string) => {
 		if (!userId) return;
 		void saveLastAiSyncStatus(userId, "error", detail);
 		setSyncStatus({
@@ -50,11 +50,11 @@ export function useInsightsSyncStatus(
 			at: new Date().toISOString(),
 			detail,
 		});
-	};
+	}, [userId]);
 
-	const clearStatus = () => {
+	const clearStatus = useCallback(() => {
 		setSyncStatus(null);
-	};
+	}, []);
 
 	return {
 		syncStatus,
