@@ -39,6 +39,20 @@ function formatAiSyncDetail(detail: string): string {
 	return detail;
 }
 
+function getAiSyncStatusLabel(
+	status: "success" | "error",
+	detail: string,
+	hasCachedInsights: boolean,
+): string {
+	if (status === "success") return "Success";
+
+	if (detail.includes("AI temporarily unavailable")) {
+		return hasCachedInsights ? "Using cached insights" : "Temporarily unavailable";
+	}
+
+	return "Failed";
+}
+
 export default function AnalysisPage() {
 	const router = useRouter();
 	const { user, loading } = useAuth();
@@ -169,6 +183,10 @@ export default function AnalysisPage() {
 		name: `${sem.semester} ${sem.year}`,
 		gpa: Number(sem.gpa.toFixed(2)),
 	}));
+
+	const syncStatusLabel = lastAiSync
+		? getAiSyncStatusLabel(lastAiSync.status, lastAiSync.detail, aiInsights.length > 0)
+		: null;
 
 	return (
 		<div className="min-h-screen bg-base-200">
@@ -462,7 +480,7 @@ export default function AnalysisPage() {
 								{lastAiSync && (
 									<p className="text-xs opacity-80">
 										Last AI sync: {new Date(lastAiSync.at).toLocaleString()} ·{" "}
-										{lastAiSync.status === "success" ? "Success" : "Failed"}
+										{syncStatusLabel}
 										{lastAiSync.detail
 											? ` (${formatAiSyncDetail(lastAiSync.detail)})`
 											: ""}
