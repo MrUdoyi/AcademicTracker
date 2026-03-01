@@ -50,11 +50,11 @@ function getAiSyncStatusLabel(
 	status: "success" | "error",
 	detail: string,
 	hasCachedInsights: boolean,
-): string {
+): string | null {
 	if (status === "success") return "Success";
 
 	if (detail.includes("AI temporarily unavailable")) {
-		return hasCachedInsights ? "Using cached insights" : "Temporarily unavailable";
+		return hasCachedInsights ? "Using cached insights" : null;
 	}
 
 	return "Failed";
@@ -202,6 +202,7 @@ export default function AnalysisPage() {
 		!!lastAiSync?.detail && !isTemporaryUnavailableDetail(lastAiSync.detail);
 	const shouldShowSyncStatus =
 		!!lastAiSync &&
+		!!syncStatusLabel &&
 		(lastAiSync.status === "success" ||
 			!isTemporaryUnavailableDetail(lastAiSync.detail) ||
 			hasAttemptedAiThisSession);
