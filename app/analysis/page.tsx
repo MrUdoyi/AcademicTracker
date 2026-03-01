@@ -39,6 +39,13 @@ function formatAiSyncDetail(detail: string): string {
 	return detail;
 }
 
+function isTemporaryUnavailableDetail(detail: string): boolean {
+	return (
+		detail.includes("AI temporarily unavailable") ||
+		detail.includes("Gemini API key is not configured")
+	);
+}
+
 function getAiSyncStatusLabel(
 	status: "success" | "error",
 	detail: string,
@@ -187,6 +194,9 @@ export default function AnalysisPage() {
 	const syncStatusLabel = lastAiSync
 		? getAiSyncStatusLabel(lastAiSync.status, lastAiSync.detail, aiInsights.length > 0)
 		: null;
+	const formattedSyncDetail = lastAiSync ? formatAiSyncDetail(lastAiSync.detail) : "";
+	const shouldShowSyncDetail =
+		!!lastAiSync?.detail && !isTemporaryUnavailableDetail(lastAiSync.detail);
 
 	return (
 		<div className="min-h-screen bg-base-200">
@@ -481,9 +491,7 @@ export default function AnalysisPage() {
 									<p className="text-xs opacity-80">
 										Last AI sync: {new Date(lastAiSync.at).toLocaleString()} ·{" "}
 										{syncStatusLabel}
-										{lastAiSync.detail
-											? ` (${formatAiSyncDetail(lastAiSync.detail)})`
-											: ""}
+										{shouldShowSyncDetail ? ` (${formattedSyncDetail})` : ""}
 									</p>
 								)}
 
