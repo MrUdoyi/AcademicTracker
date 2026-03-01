@@ -1,36 +1,65 @@
 import type { Course, Grade } from "../schemas/course";
+import {
+	getScaleItemByGrade,
+	normalizeGradingScale,
+	type GradingScale,
+} from "../schemas/grading-scale";
 
 export interface CgpaBaseValues {
 	baseCgpa: number;
 	baseTotalCredits: number;
 }
 
-/**
- * Grade point mapping based on standard 5-point scale
- */
-const GRADE_POINTS: Record<Grade, number> = {
-	A: 5.0,
-	"B+": 4.5,
-	B: 4.0,
-	"C+": 3.5,
-	C: 3.0,
-	"D+": 2.5,
-	D: 2.0,
-	E: 1.0,
-	F: 0.0,
-};
+export interface CalculateRequiredSemesterGPAInput {
+	targetCGPA: number;
+	pastCGPA: number;
+	pastTotalCredits: number;
+	currentSemesterCredits: number;
+	gradingScale?: GradingScale | null;
+}
+
+export interface CalculateRequiredSemesterGPAResult {
+	success: boolean;
+	requiredSemesterGPA?: number;
+	isTargetAchievable?: boolean;
+	maxPossibleSemesterGPA?: number;
+	maxRealisticCGPA?: number;
+	error?: string;
+}
+
+export interface CalculateMaxAchievableCGPAInput {
+	pastCGPA: number;
+	pastTotalCredits: number;
+	totalDegreeCredits: number;
+	gradingScale?: GradingScale | null;
+}
+
+export interface CalculateMaxAchievableCGPAResult {
+	success: boolean;
+	maxAchievableCGPA?: number;
+	remainingCredits?: number;
+	maxPossibleSemesterGPA?: number;
+	error?: string;
+}
 
 /**
  * Convert grade to grade points
  */
-export function gradeToPoints(grade: Grade): number {
-	return GRADE_POINTS[grade];
+export function gradeToPoints(
+	grade: Grade,
+	gradingScale?: GradingScale | null,
+): number {
+	return getScaleItemByGrade(grade, gradingScale)?.weight ?? 0;
 }
 
 /**
  * Calculate GPA for a list of courses
  */
-export function calculateGPA(courses: Course[]): number {
+export function calculateGPA(
+	courses: Course[],
+	gradingScale?: GradingScale | null,
+): number {
+	const normalizedScale = normalizeGradingScale(gradingScale);
 	const completedCourses = courses.filter(
 		(c) => c.status === "completed" && c.grade,
 	);
@@ -42,7 +71,7 @@ export function calculateGPA(courses: Course[]): number {
 
 	for (const course of completedCourses) {
 		if (course.grade) {
-			const points = gradeToPoints(course.grade);
+			const points = gradeToPoints(course.grade, normalizedScale);
 			totalPoints += points * course.units;
 			totalUnits += course.units;
 		}
@@ -58,6 +87,7 @@ export function calculateSemesterGPA(
 	courses: Course[],
 	semester: string,
 	year: number,
+	gradingScale?: GradingScale | null,
 ): number {
 	const semesterCourses = courses.filter(
 		(c) =>
@@ -67,7 +97,7 @@ export function calculateSemesterGPA(
 			c.grade,
 	);
 
-	return calculateGPA(semesterCourses);
+	return calculateGPA(semesterCourses, gradingScale);
 }
 
 /**
@@ -76,8 +106,9 @@ export function calculateSemesterGPA(
 export function calculateCGPA(
 	courses: Course[],
 	base?: CgpaBaseValues | null,
+	gradingScale?: GradingScale | null,
 ): number {
-	return calculateCGPAWithBase(courses, base);
+	return calculateCGPAWithBase(courses, base, gradingScale);
 }
 
 /**
@@ -86,7 +117,9 @@ export function calculateCGPA(
 export function calculateCGPAWithBase(
 	courses: Course[],
 	base?: CgpaBaseValues | null,
+	gradingScale?: GradingScale | null,
 ): number {
+	const normalizedScale = normalizeGradingScale(gradingScale);
 	const completedCourses = courses.filter(
 		(course) => course.status === "completed" && course.grade,
 	);
@@ -96,7 +129,7 @@ export function calculateCGPAWithBase(
 
 	for (const course of completedCourses) {
 		if (!course.grade) continue;
-		totalPoints += gradeToPoints(course.grade) * course.units;
+		totalPoints += gradeToPoints(course.grade, normalizedScale) * course.units;
 		totalUnits += course.units;
 	}
 
@@ -144,6 +177,7 @@ export function getCoursesInProgress(courses: Course[]): number {
  */
 export function getSemesterPerformance(
 	courses: Course[],
+	gradingScale?: GradingScale | null,
 ): Array<{ semester: string; gpa: number; year: number }> {
 	const semesters = new Map<string, { courses: Course[]; year: number }>();
 
@@ -164,7 +198,7 @@ export function getSemesterPerformance(
 		([key, { courses: semCourses, year }]) => ({
 			semester: key.split("-")[0],
 			year,
-			gpa: calculateGPA(semCourses),
+			gpa: calculateGPA(semCourses, gradingScale),
 		}),
 	);
 
@@ -181,8 +215,11 @@ export function getSemesterPerformance(
  */
 export function calculateDegreeProgress(
 	completedCredits: number,
-	totalRequiredCredits: number = 120,
+	totalRequiredCredits: number,
 ): number {
+	if (!Number.isFinite(totalRequiredCredits) || totalRequiredCredits <= 0) {
+		return 0;
+	}
 	return Math.min((completedCredits / totalRequiredCredits) * 100, 100);
 }
 
@@ -192,10 +229,11 @@ export function calculateDegreeProgress(
 export function generateInsights(
 	courses: Course[],
 	base?: CgpaBaseValues | null,
+	gradingScale?: GradingScale | null,
 ): string[] {
 	const insights: string[] = [];
-	const cgpa = calculateCGPAWithBase(courses, base);
-	const performance = getSemesterPerformance(courses);
+	const cgpa = calculateCGPAWithBase(courses, base, gradingScale);
+	const performance = getSemesterPerformance(courses, gradingScale);
 
 	if (cgpa >= 4.5) {
 		insights.push(
@@ -239,4 +277,138 @@ export function generateInsights(
 	}
 
 	return insights;
+}
+
+export function calculateRequiredSemesterGPA(
+	input: CalculateRequiredSemesterGPAInput,
+): CalculateRequiredSemesterGPAResult {
+	const {
+		targetCGPA,
+		pastCGPA,
+		pastTotalCredits,
+		currentSemesterCredits,
+		gradingScale,
+	} = input;
+
+	if (!Number.isFinite(targetCGPA) || targetCGPA < 0) {
+		return {
+			success: false,
+			error: "Target CGPA must be a non-negative number.",
+		};
+	}
+
+	if (!Number.isFinite(pastCGPA) || pastCGPA < 0) {
+		return {
+			success: false,
+			error: "Past CGPA must be a non-negative number.",
+		};
+	}
+
+	if (!Number.isFinite(pastTotalCredits) || pastTotalCredits < 0) {
+		return {
+			success: false,
+			error: "Past total credits must be a non-negative number.",
+		};
+	}
+
+	if (
+		!Number.isFinite(currentSemesterCredits) ||
+		currentSemesterCredits <= 0
+	) {
+		return {
+			success: false,
+			error: "Current semester credits must be greater than 0.",
+		};
+	}
+
+	const normalizedScale = normalizeGradingScale(gradingScale);
+	const maxPossibleSemesterGPA = normalizedScale[0]?.weight ?? 5;
+
+	const requiredRaw =
+		((targetCGPA * (pastTotalCredits + currentSemesterCredits)) -
+			pastCGPA * pastTotalCredits) /
+		currentSemesterCredits;
+	const requiredSemesterGPA = Number(Math.max(0, requiredRaw).toFixed(2));
+
+	if (requiredSemesterGPA <= maxPossibleSemesterGPA) {
+		return {
+			success: true,
+			requiredSemesterGPA,
+			isTargetAchievable: true,
+			maxPossibleSemesterGPA,
+		};
+	}
+
+	const maxRealisticCGPA = Number(
+		(
+			(pastCGPA * pastTotalCredits +
+				maxPossibleSemesterGPA * currentSemesterCredits) /
+			(pastTotalCredits + currentSemesterCredits)
+		).toFixed(2),
+	);
+
+	return {
+		success: true,
+		requiredSemesterGPA,
+		isTargetAchievable: false,
+		maxPossibleSemesterGPA,
+		maxRealisticCGPA,
+	};
+}
+
+export function calculateMaxAchievableCGPA(
+	input: CalculateMaxAchievableCGPAInput,
+): CalculateMaxAchievableCGPAResult {
+	const { pastCGPA, pastTotalCredits, totalDegreeCredits, gradingScale } = input;
+
+	if (!Number.isFinite(pastCGPA) || pastCGPA < 0) {
+		return {
+			success: false,
+			error: "Past CGPA must be a non-negative number.",
+		};
+	}
+
+	if (!Number.isFinite(pastTotalCredits) || pastTotalCredits < 0) {
+		return {
+			success: false,
+			error: "Past total credits must be a non-negative number.",
+		};
+		}
+
+	if (!Number.isFinite(totalDegreeCredits) || totalDegreeCredits <= 0) {
+		return {
+			success: false,
+			error: "Total degree credits must be greater than 0.",
+		};
+	}
+
+	const normalizedScale = normalizeGradingScale(gradingScale);
+	const maxPossibleSemesterGPA = normalizedScale[0]?.weight ?? 5;
+	const cappedPastCredits = Math.min(pastTotalCredits, totalDegreeCredits);
+	const remainingCredits = Math.max(totalDegreeCredits - cappedPastCredits, 0);
+	const totalCreditsAtGraduation = cappedPastCredits + remainingCredits;
+
+	if (totalCreditsAtGraduation <= 0) {
+		return {
+			success: true,
+			maxAchievableCGPA: 0,
+			remainingCredits,
+			maxPossibleSemesterGPA,
+		};
+	}
+
+	const maxAchievableCGPA = Number(
+		(
+			(pastCGPA * cappedPastCredits +
+				maxPossibleSemesterGPA * remainingCredits) /
+			totalCreditsAtGraduation
+		).toFixed(2),
+	);
+
+	return {
+		success: true,
+		maxAchievableCGPA,
+		remainingCredits,
+		maxPossibleSemesterGPA,
+	};
 }

@@ -16,10 +16,18 @@ import {
 import { InProgressCourseCard } from "../components/in-progress-course-card";
 import { Navbar } from "../components/navbar";
 import { OfflineBanner } from "../components/offline-banner";
+import { TargetSimulator } from "../components/target-simulator";
 import { useAuth } from "../lib/hooks/use-auth";
 import type { Course } from "../lib/schemas/course";
+import type { GradingScale } from "../lib/schemas/grading-scale";
 import { getUserCourses, updateCourse } from "../lib/storage/course";
-import { getUserAcademicBase, type AcademicBaseValues } from "../lib/storage/user";
+import {
+	DEFAULT_TOTAL_DEGREE_CREDITS,
+	getUserAcademicBase,
+	getUserGradingScale,
+	getUserTotalDegreeCredits,
+	type AcademicBaseValues,
+} from "../lib/storage/user";
 import { generateStudyTips } from "../lib/utils/recommendations";
 import {
 	calculateCGPA,
@@ -58,6 +66,10 @@ export default function DashboardPage() {
 	const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 	const [courses, setCourses] = useState<Course[]>([]);
 	const [academicBase, setAcademicBase] = useState<AcademicBaseValues | null>(null);
+	const [gradingScale, setGradingScale] = useState<GradingScale | null>(null);
+	const [totalDegreeCredits, setTotalDegreeCredits] = useState<number>(
+		DEFAULT_TOTAL_DEGREE_CREDITS,
+	);
 	const [selectedSemester, setSelectedSemester] = useState("all");
 	const [selectedCourse, setSelectedCourse] = useState("all");
 	const [selectedPerformance, setSelectedPerformance] =
@@ -77,17 +89,23 @@ export default function DashboardPage() {
 				if (isMounted) {
 					setCourses([]);
 					setAcademicBase(null);
+					setGradingScale(null);
+					setTotalDegreeCredits(DEFAULT_TOTAL_DEGREE_CREDITS);
 				}
 				return;
 			}
 
-			const [userCourses, base] = await Promise.all([
+			const [userCourses, base, scale, degreeCredits] = await Promise.all([
 				getUserCourses(user.id),
 				getUserAcademicBase(user.id),
+				getUserGradingScale(user.id),
+				getUserTotalDegreeCredits(user.id),
 			]);
 			if (isMounted) {
 				setCourses(userCourses);
 				setAcademicBase(base);
+				setGradingScale(scale);
+				setTotalDegreeCredits(degreeCredits);
 			}
 		};
 
@@ -98,7 +116,7 @@ export default function DashboardPage() {
 		};
 	}, [user]);
 
-	const cgpa = calculateCGPA(courses, academicBase);
+	const cgpa = calculateCGPA(courses, academicBase, gradingScale);
 	const totalCredits = getTotalCredits(courses, academicBase?.baseTotalCredits || 0);
 	const completedCourses = getTotalCoursesCompleted(courses);
 	const inProgressCourses = getCoursesInProgress(courses);
@@ -106,8 +124,8 @@ export default function DashboardPage() {
 		() => courses.filter((course) => course.status === "in-progress"),
 		[courses],
 	);
-	const degreeProgress = calculateDegreeProgress(totalCredits);
-	const semesterPerformance = getSemesterPerformance(courses);
+	const degreeProgress = calculateDegreeProgress(totalCredits, totalDegreeCredits);
+	const semesterPerformance = getSemesterPerformance(courses, gradingScale);
 
 	const semesterOptions = useMemo(() => {
 		const values = Array.from(
@@ -141,8 +159,8 @@ export default function DashboardPage() {
 	);
 
 	const filteredSemesterPerformance = useMemo(
-		() => getSemesterPerformance(filteredCourses),
-		[filteredCourses],
+		() => getSemesterPerformance(filteredCourses, gradingScale),
+		[filteredCourses, gradingScale],
 	);
 
 	const semesterChartData = useMemo(
@@ -154,7 +172,7 @@ export default function DashboardPage() {
 		[filteredSemesterPerformance],
 	);
 
-	const insights = generateStudyTips(filteredCourses, academicBase);
+	const insights = generateStudyTips(filteredCourses, academicBase, gradingScale);
 
 	if (loading) {
 		return (
@@ -169,7 +187,10 @@ export default function DashboardPage() {
 	const handleExportTranscript = () => {
 		setIsGeneratingPDF(true);
 		try {
-			downloadTranscript(user, courses, { includeInsights: true });
+			downloadTranscript(user, courses, {
+				includeInsights: true,
+				totalDegreeCredits,
+			});
 		} catch (error) {
 			console.error("Failed to generate PDF:", error);
 		} finally {
@@ -219,7 +240,7 @@ export default function DashboardPage() {
 						<div className="stat">
 							<div className="stat-title">Credits Completed</div>
 							<div className="stat-value text-secondary">{totalCredits}</div>
-							<div className="stat-desc">Out of 120 total</div>
+							<div className="stat-desc">Out of {totalDegreeCredits} total</div>
 						</div>
 					</div>
 
@@ -252,9 +273,19 @@ export default function DashboardPage() {
 							<span className="font-bold">{degreeProgress.toFixed(1)}%</span>
 						</div>
 						<p className="text-sm opacity-70">
-							{totalCredits} of 120 credits completed
+							{totalCredits} of {totalDegreeCredits} credits completed
 						</p>
 					</div>
+				</div>
+
+				<div className="mb-6">
+					<TargetSimulator
+						userId={user.id}
+						courses={courses}
+						academicBase={academicBase}
+						gradingScale={gradingScale}
+						totalDegreeCredits={totalDegreeCredits}
+					/>
 				</div>
 
 				<div className="card bg-base-100 shadow-xl mb-6">
@@ -376,6 +407,7 @@ export default function DashboardPage() {
 										targetGrade={course.targetGrade}
 										currentScore={course.currentScore}
 										maxAssessmentScore={course.maxAssessmentScore}
+										gradingScale={gradingScale}
 										onSave={handleSaveInProgressCourse}
 									/>
 								))}

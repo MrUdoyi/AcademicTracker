@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { Course } from "../schemas/course";
 import type { User } from "../schemas/user";
+import { DEFAULT_TOTAL_DEGREE_CREDITS } from "../storage/user";
 import {
 	calculateCGPA,
 	calculateDegreeProgress,
@@ -14,6 +15,7 @@ import {
 interface PDFOptions {
 	includeInsights?: boolean;
 	includeCharts?: boolean;
+	totalDegreeCredits?: number;
 }
 
 /**
@@ -25,7 +27,7 @@ export function generateTranscriptPDF(
 	options: PDFOptions = {},
 ): jsPDF {
 	const doc = new jsPDF();
-	const { includeInsights = true } = options;
+	const { includeInsights = true, totalDegreeCredits = DEFAULT_TOTAL_DEGREE_CREDITS } = options;
 
 	const pageWidth = doc.internal.pageSize.getWidth();
 	const pageHeight = doc.internal.pageSize.getHeight();
@@ -74,7 +76,7 @@ export function generateTranscriptPDF(
 	const cgpa = calculateCGPA(courses);
 	const totalCredits = getTotalCredits(courses);
 	const completedCourses = getTotalCoursesCompleted(courses);
-	const degreeProgress = calculateDegreeProgress(totalCredits);
+	const degreeProgress = calculateDegreeProgress(totalCredits, totalDegreeCredits);
 
 	doc.setFontSize(14);
 	doc.setFont("helvetica", "bold");
@@ -85,7 +87,7 @@ export function generateTranscriptPDF(
 	doc.setFont("helvetica", "normal");
 	doc.text(`Cumulative GPA (CGPA): ${cgpa.toFixed(2)} / 5.0`, 14, yPosition);
 	yPosition += 6;
-	doc.text(`Total Credits Completed: ${totalCredits} / 120`, 14, yPosition);
+	doc.text(`Total Credits Completed: ${totalCredits} / ${totalDegreeCredits}`, 14, yPosition);
 	yPosition += 6;
 	doc.text(`Courses Completed: ${completedCourses}`, 14, yPosition);
 	yPosition += 6;

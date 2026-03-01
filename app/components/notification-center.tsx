@@ -5,12 +5,17 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../lib/hooks/use-auth";
 import type { Course } from "../lib/schemas/course";
+import type { GradingScale } from "../lib/schemas/grading-scale";
 import { getUserCourses } from "../lib/storage/course";
 import {
 	getReadNotificationIds,
 	saveReadNotificationIds,
 } from "../lib/storage/notifications";
-import { getUserAcademicBase, getUserTargetGpa } from "../lib/storage/user";
+import {
+	getUserAcademicBase,
+	getUserGradingScale,
+	getUserTargetGpa,
+} from "../lib/storage/user";
 import { calculateCGPA, getCoursesInProgress, gradeToPoints } from "../lib/utils/gpa";
 
 type ReminderType = "info" | "warning";
@@ -26,11 +31,12 @@ function buildReminders(
 	courses: Course[],
 	targetGpa: number | null,
 	base: { baseCgpa: number; baseTotalCredits: number } | null,
+	gradingScale: GradingScale | null,
 ): Reminder[] {
 	const reminders: Reminder[] = [];
 	const completed = courses.filter((course) => course.status === "completed");
 	const inProgress = getCoursesInProgress(courses);
-	const cgpa = calculateCGPA(courses, base);
+	const cgpa = calculateCGPA(courses, base, gradingScale);
 
 	if (courses.length === 0) {
 		reminders.push({
@@ -60,7 +66,9 @@ function buildReminders(
 	}
 
 	const lowCourses = completed
-		.filter((course) => course.grade && gradeToPoints(course.grade) <= 2.5)
+		.filter(
+			(course) => course.grade && gradeToPoints(course.grade, gradingScale) <= 2.5,
+		)
 		.slice(0, 2);
 
 	for (const course of lowCourses) {
@@ -96,15 +104,21 @@ export function NotificationCenter() {
 				return;
 			}
 
-			const [courses, targetGpa, base] = await Promise.all([
+			const [courses, targetGpa, base, gradingScale] = await Promise.all([
 				getUserCourses(user.id),
 				getUserTargetGpa(user.id),
 				getUserAcademicBase(user.id),
+				getUserGradingScale(user.id),
 			]);
 
 			if (!isMounted) return;
 
-			const nextReminders = buildReminders(courses, targetGpa, base);
+			const nextReminders = buildReminders(
+				courses,
+				targetGpa,
+				base,
+				gradingScale,
+			);
 			const storedReadIds = getReadNotificationIds(user.id);
 			setReminders(nextReminders);
 			setReadIds(

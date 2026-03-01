@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import type { Course } from "../schemas/course";
 import {
+	calculateMaxAchievableCGPA,
+	calculateRequiredSemesterGPA,
 	calculateCGPA,
 	calculateDegreeProgress,
 	calculateGPA,
@@ -66,6 +68,48 @@ describe("gradeToPoints", () => {
 
 	test("converts F to 0.0", () => {
 		expect(gradeToPoints("F")).toBe(0.0);
+	});
+});
+
+describe("calculateMaxAchievableCGPA", () => {
+	test("calculates max achievable CGPA from remaining credits", () => {
+		const result = calculateMaxAchievableCGPA({
+			pastCGPA: 3.2,
+			pastTotalCredits: 80,
+			totalDegreeCredits: 150,
+			gradingScale: [
+				{ grade: "A", minScore: 70, weight: 5 },
+				{ grade: "B", minScore: 60, weight: 4 },
+			],
+		});
+
+		expect(result.success).toBe(true);
+		expect(result.remainingCredits).toBe(70);
+		expect(result.maxPossibleSemesterGPA).toBe(5);
+		expect(result.maxAchievableCGPA).toBe(4.04);
+	});
+
+	test("returns current outcome when no remaining credits", () => {
+		const result = calculateMaxAchievableCGPA({
+			pastCGPA: 3.75,
+			pastTotalCredits: 120,
+			totalDegreeCredits: 120,
+		});
+
+		expect(result.success).toBe(true);
+		expect(result.remainingCredits).toBe(0);
+		expect(result.maxAchievableCGPA).toBe(3.75);
+	});
+
+	test("returns validation error for invalid total degree credits", () => {
+		const result = calculateMaxAchievableCGPA({
+			pastCGPA: 3,
+			pastTotalCredits: 60,
+			totalDegreeCredits: 0,
+		});
+
+		expect(result.success).toBe(false);
+		expect(result.error).toBeDefined();
 	});
 });
 
@@ -164,8 +208,8 @@ describe("calculateDegreeProgress", () => {
 		expect(calculateDegreeProgress(150, 120)).toBe(100);
 	});
 
-	test("uses default total credits", () => {
-		expect(calculateDegreeProgress(60)).toBe(50);
+	test("returns 0 when total required credits is invalid", () => {
+		expect(calculateDegreeProgress(60, 0)).toBe(0);
 	});
 });
 
@@ -195,5 +239,58 @@ describe("generateInsights", () => {
 	test("returns empty array for no courses", () => {
 		const insights = generateInsights([]);
 		expect(insights).toHaveLength(0);
+	});
+});
+
+describe("calculateRequiredSemesterGPA", () => {
+	test("returns achievable required semester GPA", () => {
+		const result = calculateRequiredSemesterGPA({
+			targetCGPA: 4.2,
+			pastCGPA: 4.0,
+			pastTotalCredits: 60,
+			currentSemesterCredits: 20,
+			gradingScale: [
+				{ grade: "A", minScore: 70, weight: 5 },
+				{ grade: "B", minScore: 60, weight: 4 },
+				{ grade: "C", minScore: 50, weight: 3 },
+			],
+		});
+
+		expect(result.success).toBe(true);
+		expect(result.isTargetAchievable).toBe(true);
+		expect(result.requiredSemesterGPA).toBe(4.8);
+		expect(result.maxPossibleSemesterGPA).toBe(5);
+	});
+
+	test("returns impossible result and max realistic CGPA", () => {
+		const result = calculateRequiredSemesterGPA({
+			targetCGPA: 4.8,
+			pastCGPA: 3.0,
+			pastTotalCredits: 90,
+			currentSemesterCredits: 20,
+			gradingScale: [
+				{ grade: "A", minScore: 80, weight: 4 },
+				{ grade: "B", minScore: 70, weight: 3 },
+				{ grade: "C", minScore: 60, weight: 2 },
+			],
+		});
+
+		expect(result.success).toBe(true);
+		expect(result.isTargetAchievable).toBe(false);
+		expect(result.requiredSemesterGPA).toBeGreaterThan(4);
+		expect(result.maxPossibleSemesterGPA).toBe(4);
+		expect(result.maxRealisticCGPA).toBe(3.18);
+	});
+
+	test("returns error when current semester credits are invalid", () => {
+		const result = calculateRequiredSemesterGPA({
+			targetCGPA: 4,
+			pastCGPA: 3.5,
+			pastTotalCredits: 30,
+			currentSemesterCredits: 0,
+		});
+
+		expect(result.success).toBe(false);
+		expect(result.error).toBeDefined();
 	});
 });

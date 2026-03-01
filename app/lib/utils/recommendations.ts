@@ -1,4 +1,5 @@
 import type { Course } from "../schemas/course";
+import type { GradingScale } from "../schemas/grading-scale";
 import {
 	calculateCGPA,
 	type CgpaBaseValues,
@@ -14,13 +15,16 @@ import {
 export function generateStudyTips(
 	courses: Course[],
 	base?: CgpaBaseValues | null,
+	gradingScale?: GradingScale | null,
 ): string[] {
 	const tips: string[] = [];
 	const completedCourses = courses.filter(
 		(course) => course.status === "completed" && course.grade,
 	);
 	const lowGradeCourses = completedCourses
-		.filter((course) => course.grade && gradeToPoints(course.grade) <= 2.5)
+		.filter(
+			(course) => course.grade && gradeToPoints(course.grade, gradingScale) <= 2.5,
+		)
 		.slice(0, 3);
 
 	for (const course of lowGradeCourses) {
@@ -29,14 +33,14 @@ export function generateStudyTips(
 		);
 	}
 
-	const cgpa = calculateCGPA(courses, base);
+	const cgpa = calculateCGPA(courses, base, gradingScale);
 	if (cgpa > 0 && cgpa < 3.0) {
 		tips.push(
 			"Your CGPA is currently below 3.0. Meet a course adviser and create a weekly recovery plan for your lowest-performing courses.",
 		);
 	}
 
-	const semesterPerformance = getSemesterPerformance(courses);
+	const semesterPerformance = getSemesterPerformance(courses, gradingScale);
 	if (semesterPerformance.length >= 2) {
 		const recent = semesterPerformance.slice(-2);
 		const trend = recent[1].gpa - recent[0].gpa;

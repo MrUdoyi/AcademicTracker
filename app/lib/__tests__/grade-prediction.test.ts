@@ -5,9 +5,12 @@ describe("calculateRequiredExamScore", () => {
 	test("returns required score when target is achievable", () => {
 		const result = calculateRequiredExamScore({
 			targetGrade: "A",
-			targetGradeThreshold: 70,
 			currentScore: 18,
 			maxExamScore: 70,
+			gradingScale: [
+				{ grade: "A", minScore: 70, weight: 5 },
+				{ grade: "B", minScore: 60, weight: 4 },
+			],
 		});
 
 		expect(result.success).toBe(true);
@@ -19,14 +22,13 @@ describe("calculateRequiredExamScore", () => {
 	test("returns fallback suggestion when target is not achievable", () => {
 		const result = calculateRequiredExamScore({
 			targetGrade: "A",
-			targetGradeThreshold: 70,
 			currentScore: 5,
 			maxExamScore: 40,
-			gradeThresholds: [
-				{ grade: "A", threshold: 70 },
-				{ grade: "B", threshold: 60 },
-				{ grade: "C", threshold: 50 },
-				{ grade: "D", threshold: 45 },
+			gradingScale: [
+				{ grade: "A", minScore: 70, weight: 5 },
+				{ grade: "B", minScore: 60, weight: 4 },
+				{ grade: "C", minScore: 50, weight: 3 },
+				{ grade: "D", minScore: 45, weight: 2 },
 			],
 		});
 
@@ -44,7 +46,6 @@ describe("calculateRequiredExamScore", () => {
 	test("returns validation error for invalid inputs", () => {
 		const result = calculateRequiredExamScore({
 			targetGrade: "",
-			targetGradeThreshold: 70,
 			currentScore: 10,
 			maxExamScore: 70,
 		});

@@ -7,11 +7,19 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text not null,
   name text not null,
+  grading_scale jsonb null,
+  total_degree_credits integer null check (total_degree_credits > 0),
   base_cgpa numeric(3,2) null check (base_cgpa >= 0 and base_cgpa <= 5),
   base_total_credits integer null check (base_total_credits >= 0),
   target_gpa numeric(3,2) null check (target_gpa >= 0 and target_gpa <= 5),
   created_at timestamptz not null default now()
 );
+
+alter table public.profiles
+  add column if not exists grading_scale jsonb null;
+
+alter table public.profiles
+  add column if not exists total_degree_credits integer null check (total_degree_credits > 0);
 
 alter table public.profiles
   add column if not exists base_cgpa numeric(3,2) null check (base_cgpa >= 0 and base_cgpa <= 5);

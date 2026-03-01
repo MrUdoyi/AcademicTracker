@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import type { GeminiResponse } from "../actions/gemini";
+import { normalizeGradingScale } from "../schemas/grading-scale";
 import { getUserCourses } from "../storage/course";
 import { getCachedAiInsights, saveCachedAiInsights } from "../storage/insights";
-import { getUserAcademicBase } from "../storage/user";
+import {
+	DEFAULT_TOTAL_DEGREE_CREDITS,
+	getUserAcademicBase,
+	getUserGradingScale,
+	getUserTotalDegreeCredits,
+} from "../storage/user";
 import {
 	calculateCGPA,
 	getTotalCoursesCompleted,
@@ -48,18 +54,22 @@ export function useAiInsights(userId: string | null): UseAiInsightsReturn {
 		setError(null);
 
 		try {
-			const [courses, base] = await Promise.all([
+			const [courses, base, gradingScale, totalDegreeCredits] = await Promise.all([
 				getUserCourses(userId),
 				getUserAcademicBase(userId),
+				getUserGradingScale(userId),
+				getUserTotalDegreeCredits(userId),
 			]);
-			const cgpa = calculateCGPA(courses, base);
+			const cgpa = calculateCGPA(courses, base, gradingScale);
 			const totalCredits = getTotalCredits(courses, base?.baseTotalCredits || 0);
 			const completedCourses = getTotalCoursesCompleted(courses);
+			const normalizedScale = normalizeGradingScale(gradingScale);
+			const maxScaleWeight = normalizedScale[0]?.weight ?? 5;
 
 			const prompt = `As an academic advisor, analyze this student's academic performance and provide 3-5 specific, actionable insights:
 
-Current CGPA: ${cgpa.toFixed(2)} out of 5.0
-Total Credits: ${totalCredits} out of 120
+Current CGPA: ${cgpa.toFixed(2)} out of ${maxScaleWeight.toFixed(1)}
+Total Credits: ${totalCredits} out of ${totalDegreeCredits || DEFAULT_TOTAL_DEGREE_CREDITS}
 Completed Courses: ${completedCourses}
 
 Course Details:

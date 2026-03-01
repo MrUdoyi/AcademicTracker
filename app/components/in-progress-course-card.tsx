@@ -2,19 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { Grade } from "../lib/schemas/course";
+import type { GradingScale } from "../lib/schemas/grading-scale";
+import { normalizeGradingScale } from "../lib/schemas/grading-scale";
 import { calculateRequiredExamScore } from "../lib/utils/grade-prediction";
-
-const TARGET_GRADE_THRESHOLDS: Record<Grade, number> = {
-	A: 70,
-	"B+": 65,
-	B: 60,
-	"C+": 55,
-	C: 50,
-	"D+": 45,
-	D: 40,
-	E: 35,
-	F: 0,
-};
 
 interface InProgressCourseCardProps {
 	courseId: string;
@@ -22,6 +12,7 @@ interface InProgressCourseCardProps {
 	targetGrade?: Grade;
 	currentScore?: number;
 	maxAssessmentScore?: 30 | 40;
+	gradingScale?: GradingScale | null;
 	onSave: (payload: {
 		courseId: string;
 		targetGrade?: Grade;
@@ -36,8 +27,14 @@ export function InProgressCourseCard({
 	targetGrade,
 	currentScore,
 	maxAssessmentScore = 30,
+	gradingScale,
 	onSave,
 }: InProgressCourseCardProps) {
+	const normalizedScale = useMemo(
+		() => normalizeGradingScale(gradingScale),
+		[gradingScale],
+	);
+
 	const [selectedTargetGrade, setSelectedTargetGrade] = useState<string>(
 		targetGrade || "",
 	);
@@ -55,7 +52,7 @@ export function InProgressCourseCard({
 	}, [targetGrade, currentScore, maxAssessmentScore]);
 
 	const targetThreshold = selectedTargetGrade
-		? TARGET_GRADE_THRESHOLDS[selectedTargetGrade as Grade]
+		? normalizedScale.find((item) => item.grade === selectedTargetGrade)?.minScore
 		: undefined;
 	const maxExamScore = 100 - assessmentWeight;
 
@@ -63,11 +60,11 @@ export function InProgressCourseCard({
 		if (!selectedTargetGrade || targetThreshold === undefined) return null;
 		return calculateRequiredExamScore({
 			targetGrade: selectedTargetGrade,
-			targetGradeThreshold: targetThreshold,
 			currentScore: scoreInput,
 			maxExamScore,
+			gradingScale: normalizedScale,
 		});
-	}, [selectedTargetGrade, targetThreshold, scoreInput, maxExamScore]);
+	}, [selectedTargetGrade, targetThreshold, scoreInput, maxExamScore, normalizedScale]);
 
 	const progressPercent = targetThreshold
 		? Math.min((scoreInput / targetThreshold) * 100, 100)
@@ -120,15 +117,11 @@ export function InProgressCourseCard({
 						onChange={(event) => setSelectedTargetGrade(event.target.value)}
 					>
 						<option value="">No target</option>
-						<option value="A">A</option>
-						<option value="B+">B+</option>
-						<option value="B">B</option>
-						<option value="C+">C+</option>
-						<option value="C">C</option>
-						<option value="D+">D+</option>
-						<option value="D">D</option>
-						<option value="E">E</option>
-						<option value="F">F</option>
+						{normalizedScale.map((item) => (
+							<option key={item.grade} value={item.grade}>
+								{item.grade}
+							</option>
+						))}
 					</select>
 				</label>
 

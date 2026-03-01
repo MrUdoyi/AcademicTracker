@@ -17,23 +17,13 @@ import {
 } from "../lib/storage/course";
 import {
 	getUserAcademicBase,
+	getUserGradingScale,
 	getUserTargetGpa,
 	type AcademicBaseValues,
 } from "../lib/storage/user";
+import type { GradingScale } from "../lib/schemas/grading-scale";
 import { calculateCGPA } from "../lib/utils/gpa";
 import { calculateRequiredExamScore } from "../lib/utils/grade-prediction";
-
-const TARGET_GRADE_THRESHOLDS: Record<string, number> = {
-	A: 70,
-	"B+": 65,
-	B: 60,
-	"C+": 55,
-	C: 50,
-	"D+": 45,
-	D: 40,
-	E: 35,
-	F: 0,
-};
 
 export default function CoursesPage() {
 	const router = useRouter();
@@ -46,6 +36,7 @@ export default function CoursesPage() {
 	const [error, setError] = useState("");
 	const [targetGpa, setTargetGpa] = useState<number | null>(null);
 	const [academicBase, setAcademicBase] = useState<AcademicBaseValues | null>(null);
+	const [gradingScale, setGradingScale] = useState<GradingScale | null>(null);
 	const [gpaAlert, setGpaAlert] = useState<string | null>(null);
 
 	const [formData, setFormData] = useState({
@@ -92,17 +83,20 @@ export default function CoursesPage() {
 				if (isMounted) {
 					setTargetGpa(null);
 					setAcademicBase(null);
+					setGradingScale(null);
 				}
 				return;
 			}
 
-			const [target, base] = await Promise.all([
+			const [target, base, scale] = await Promise.all([
 				getUserTargetGpa(user.id),
 				getUserAcademicBase(user.id),
+				getUserGradingScale(user.id),
 			]);
 			if (isMounted) {
 				setTargetGpa(target);
 				setAcademicBase(base);
+				setGradingScale(scale);
 			}
 		};
 
@@ -158,7 +152,7 @@ export default function CoursesPage() {
 
 		try {
 			const beforeCourses = getFlatCourses(coursesBySemester);
-			const previousCgpa = calculateCGPA(beforeCourses, academicBase);
+			const previousCgpa = calculateCGPA(beforeCourses, academicBase, gradingScale);
 
 			if (
 				formData.status === "in-progress" &&
@@ -185,7 +179,7 @@ export default function CoursesPage() {
 
 			if (targetGpa !== null) {
 				const afterCourses = getFlatCourses(groupedAfterSave);
-				const newCgpa = calculateCGPA(afterCourses, academicBase);
+				const newCgpa = calculateCGPA(afterCourses, academicBase, gradingScale);
 
 				if (previousCgpa >= targetGpa && newCgpa < targetGpa) {
 					setGpaAlert(
@@ -225,19 +219,15 @@ export default function CoursesPage() {
 
 	if (!user) return null;
 
-	const targetThreshold = formData.targetGrade
-		? TARGET_GRADE_THRESHOLDS[formData.targetGrade]
-		: undefined;
 	const maxExamScore = 100 - formData.maxAssessmentScore;
 	const examPrediction =
 		formData.status === "in-progress" &&
-		formData.targetGrade &&
-		targetThreshold !== undefined
+		formData.targetGrade
 			? calculateRequiredExamScore({
 					targetGrade: formData.targetGrade,
-					targetGradeThreshold: targetThreshold,
 					currentScore: formData.currentScore,
 					maxExamScore,
+					gradingScale,
 			  })
 			: null;
 
@@ -330,19 +320,12 @@ export default function CoursesPage() {
 															{course.status === "in-progress" &&
 															course.targetGrade ? (
 																(() => {
-																	const threshold =
-																		TARGET_GRADE_THRESHOLDS[course.targetGrade];
-																	if (threshold === undefined) {
-																		return (
-																			<span className="text-xs opacity-70">-</span>
-																		);
-																	}
-
+											
 																	const prediction = calculateRequiredExamScore({
 																		targetGrade: course.targetGrade,
-																		targetGradeThreshold: threshold,
 																		currentScore: course.currentScore ?? 0,
 																		maxExamScore: 100 - (course.maxAssessmentScore ?? 30),
+																		gradingScale,
 																	});
 
 																	if (!prediction.success) {

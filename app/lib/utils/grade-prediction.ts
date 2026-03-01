@@ -1,3 +1,8 @@
+import {
+	normalizeGradingScale,
+	type GradingScale,
+} from "../schemas/grading-scale";
+
 export interface GradeThreshold {
 	grade: string;
 	threshold: number;
@@ -5,10 +10,9 @@ export interface GradeThreshold {
 
 export interface CalculateRequiredExamScoreInput {
 	targetGrade: string;
-	targetGradeThreshold: number;
 	currentScore: number;
 	maxExamScore: number;
-	gradeThresholds?: GradeThreshold[];
+	gradingScale?: GradingScale | null;
 }
 
 export interface AchievableGradeSuggestion {
@@ -27,25 +31,13 @@ export interface CalculateRequiredExamScoreResult {
 	error?: string;
 }
 
-const DEFAULT_GRADE_THRESHOLDS: GradeThreshold[] = [
-	{ grade: "A", threshold: 70 },
-	{ grade: "B", threshold: 60 },
-	{ grade: "C", threshold: 50 },
-	{ grade: "D", threshold: 45 },
-	{ grade: "E", threshold: 40 },
-	{ grade: "F", threshold: 0 },
-];
+function normalizeThresholds(gradingScale?: GradingScale | null): GradeThreshold[] {
+	const scale = normalizeGradingScale(gradingScale);
 
-function normalizeThresholds(gradeThresholds?: GradeThreshold[]): GradeThreshold[] {
-	const source = gradeThresholds && gradeThresholds.length > 0
-		? gradeThresholds
-		: DEFAULT_GRADE_THRESHOLDS;
-
-	const filtered = source.filter((item) =>
-		item.grade.trim().length > 0 && Number.isFinite(item.threshold),
-	);
-
-	return [...filtered].sort((a, b) => b.threshold - a.threshold);
+	return scale.map((item) => ({
+		grade: item.grade,
+		threshold: item.minScore,
+	}));
 }
 
 /**
@@ -58,20 +50,27 @@ export function calculateRequiredExamScore(
 	try {
 		const {
 			targetGrade,
-			targetGradeThreshold,
 			currentScore,
 			maxExamScore,
-			gradeThresholds,
+			gradingScale,
 		} = input;
+
+		const thresholds = normalizeThresholds(gradingScale);
+		const targetItem = thresholds.find((item) => item.grade === targetGrade);
+		const targetGradeThreshold = targetItem?.threshold;
 
 		if (!targetGrade || targetGrade.trim().length === 0) {
 			return { success: false, error: "Target grade is required." };
 		}
 
-		if (!Number.isFinite(targetGradeThreshold) || targetGradeThreshold < 0) {
+		if (
+			targetGradeThreshold === undefined ||
+			!Number.isFinite(targetGradeThreshold) ||
+			targetGradeThreshold < 0
+		) {
 			return {
 				success: false,
-				error: "Target grade threshold must be a non-negative number.",
+				error: "Target grade does not exist in the grading scale.",
 			};
 		}
 
@@ -105,7 +104,6 @@ export function calculateRequiredExamScore(
 
 		const shortfall = Number((requiredExamScore - maxExamScore).toFixed(2));
 		const achievableTotal = currentScore + maxExamScore;
-		const thresholds = normalizeThresholds(gradeThresholds);
 		const suggestionThreshold = thresholds.find(
 			(item) =>
 				item.threshold < targetGradeThreshold && item.threshold <= achievableTotal,

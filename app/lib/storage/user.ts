@@ -1,9 +1,39 @@
 import type { LoginInput, RegisterInput, User } from "../schemas/user";
+import {
+	normalizeGradingScale,
+	type GradingScale,
+	type GradingScaleItem,
+} from "../schemas/grading-scale";
 import { supabase } from "../supabase/client";
 
 export interface AcademicBaseValues {
 	baseCgpa: number;
 	baseTotalCredits: number;
+}
+
+export const DEFAULT_TOTAL_DEGREE_CREDITS = 120;
+
+function parseGradingScale(value: unknown): GradingScale | null {
+	if (!Array.isArray(value)) return null;
+
+	const items: GradingScaleItem[] = value
+		.filter((entry): entry is Record<string, unknown> =>
+			typeof entry === "object" && entry !== null,
+		)
+		.map((entry) => ({
+			grade: String(entry.grade ?? "").trim(),
+			minScore: Number(entry.minScore),
+			weight: Number(entry.weight),
+		}))
+		.filter(
+			(item) =>
+				item.grade.length > 0 &&
+				Number.isFinite(item.minScore) &&
+				Number.isFinite(item.weight),
+		);
+
+	if (items.length === 0) return null;
+	return normalizeGradingScale(items);
 }
 
 function isProfilesRlsError(message: string): boolean {
@@ -80,6 +110,7 @@ function mapSupabaseUserToAppUser(
 		email: user.email || "",
 		name: profileName || user.email?.split("@")[0] || "Student",
 		password: "",
+		totalDegreeCredits: DEFAULT_TOTAL_DEGREE_CREDITS,
 		createdAt: user.created_at || new Date().toISOString(),
 	};
 }
@@ -293,6 +324,90 @@ export async function setUserAcademicBase(
 	const { error } = await supabase
 		.from("profiles")
 		.update(payload)
+		.eq("id", userId);
+
+	if (error) {
+		throw new Error(error.message);
+	}
+}
+
+export async function getUserGradingScale(
+	userId: string,
+): Promise<GradingScale | null> {
+	await ensureProfileForUser(userId);
+
+	const { data, error } = await supabase
+		.from("profiles")
+		.select("grading_scale")
+		.eq("id", userId)
+		.maybeSingle();
+
+	if (error || !data) return null;
+
+	return parseGradingScale(data.grading_scale);
+}
+
+export async function setUserGradingScale(
+	userId: string,
+	gradingScale: GradingScale | null,
+): Promise<void> {
+	await ensureProfileForUser(userId);
+
+	const payload = {
+		grading_scale: gradingScale ? normalizeGradingScale(gradingScale) : null,
+	};
+
+	const { error } = await supabase
+		.from("profiles")
+		.update(payload)
+		.eq("id", userId);
+
+	if (error) {
+		throw new Error(error.message);
+	}
+}
+
+export async function getUserTotalDegreeCredits(userId: string): Promise<number> {
+	await ensureProfileForUser(userId);
+
+	const { data, error } = await supabase
+		.from("profiles")
+		.select("total_degree_credits")
+		.eq("id", userId)
+		.maybeSingle();
+
+	if (error || !data) return DEFAULT_TOTAL_DEGREE_CREDITS;
+
+	const value = data.total_degree_credits;
+	if (
+		typeof value !== "number" ||
+		!Number.isFinite(value) ||
+		value <= 0 ||
+		!Number.isInteger(value)
+	) {
+		return DEFAULT_TOTAL_DEGREE_CREDITS;
+	}
+
+	return value;
+}
+
+export async function setUserTotalDegreeCredits(
+	userId: string,
+	totalDegreeCredits: number,
+): Promise<void> {
+	await ensureProfileForUser(userId);
+
+	if (
+		!Number.isFinite(totalDegreeCredits) ||
+		totalDegreeCredits <= 0 ||
+		!Number.isInteger(totalDegreeCredits)
+	) {
+		throw new Error("Expected Total Degree Credits must be a whole number greater than 0.");
+	}
+
+	const { error } = await supabase
+		.from("profiles")
+		.update({ total_degree_credits: totalDegreeCredits })
 		.eq("id", userId);
 
 	if (error) {

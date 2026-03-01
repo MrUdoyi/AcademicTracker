@@ -3,15 +3,22 @@
 import { AlertCircle, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { GradingScaleConfig } from "../components/grading-scale-config";
 import { Navbar } from "../components/navbar";
 import { OfflineBanner } from "../components/offline-banner";
 import { useAuth } from "../lib/hooks/use-auth";
 import type { Course } from "../lib/schemas/course";
+import type { GradingScale } from "../lib/schemas/grading-scale";
+import { normalizeGradingScale } from "../lib/schemas/grading-scale";
 import { getUserCourses } from "../lib/storage/course";
 import {
+	DEFAULT_TOTAL_DEGREE_CREDITS,
 	getUserAcademicBase,
+	getUserGradingScale,
 	getUserTargetGpa,
+	getUserTotalDegreeCredits,
 	setUserAcademicBase,
+	setUserTotalDegreeCredits,
 	setUserTargetGpa,
 	type AcademicBaseValues,
 } from "../lib/storage/user";
@@ -31,11 +38,21 @@ export default function ProfilePage() {
 	const [goalError, setGoalError] = useState<string | null>(null);
 	const [isSavingGoal, setIsSavingGoal] = useState(false);
 	const [academicBase, setAcademicBase] = useState<AcademicBaseValues | null>(null);
+	const [gradingScale, setGradingScale] = useState<GradingScale | null>(null);
 	const [baseCgpaInput, setBaseCgpaInput] = useState("");
 	const [baseCreditsInput, setBaseCreditsInput] = useState("");
 	const [baseMessage, setBaseMessage] = useState<string | null>(null);
 	const [baseError, setBaseError] = useState<string | null>(null);
 	const [isSavingBase, setIsSavingBase] = useState(false);
+	const [totalDegreeCredits, setTotalDegreeCredits] = useState<number>(
+		DEFAULT_TOTAL_DEGREE_CREDITS,
+	);
+	const [totalDegreeCreditsInput, setTotalDegreeCreditsInput] = useState("");
+	const [degreeCreditsMessage, setDegreeCreditsMessage] = useState<string | null>(
+		null,
+	);
+	const [degreeCreditsError, setDegreeCreditsError] = useState<string | null>(null);
+	const [isSavingDegreeCredits, setIsSavingDegreeCredits] = useState(false);
 
 	useEffect(() => {
 		if (!loading && !user) {
@@ -70,16 +87,26 @@ export default function ProfilePage() {
 			if (!user) {
 				if (isMounted) {
 					setAcademicBase(null);
+					setGradingScale(null);
+					setTotalDegreeCredits(DEFAULT_TOTAL_DEGREE_CREDITS);
+					setTotalDegreeCreditsInput(String(DEFAULT_TOTAL_DEGREE_CREDITS));
 					setBaseCgpaInput("");
 					setBaseCreditsInput("");
 				}
 				return;
 			}
 
-			const base = await getUserAcademicBase(user.id);
+			const [base, scale, degreeCredits] = await Promise.all([
+				getUserAcademicBase(user.id),
+				getUserGradingScale(user.id),
+				getUserTotalDegreeCredits(user.id),
+			]);
 			if (!isMounted) return;
 
 			setAcademicBase(base);
+			setGradingScale(scale);
+			setTotalDegreeCredits(degreeCredits);
+			setTotalDegreeCreditsInput(String(degreeCredits));
 			setBaseCgpaInput(base ? base.baseCgpa.toFixed(2) : "");
 			setBaseCreditsInput(base ? String(base.baseTotalCredits) : "");
 		};
@@ -127,10 +154,42 @@ export default function ProfilePage() {
 
 	if (!user) return null;
 
-	const cgpa = calculateCGPA(courses, academicBase);
+	const cgpa = calculateCGPA(courses, academicBase, gradingScale);
+	const maxScaleWeight = normalizeGradingScale(gradingScale)[0]?.weight ?? 5;
 	const totalCredits = getTotalCredits(courses, academicBase?.baseTotalCredits || 0);
 	const completedCourses = getTotalCoursesCompleted(courses);
 	const goalProgress = targetGpa ? Math.min((cgpa / targetGpa) * 100, 100) : 0;
+
+	const handleSaveTotalDegreeCredits = async () => {
+		if (!user) return;
+
+		setDegreeCreditsError(null);
+		setDegreeCreditsMessage(null);
+
+		const parsed = Number(totalDegreeCreditsInput.trim());
+		if (!Number.isFinite(parsed) || parsed <= 0 || !Number.isInteger(parsed)) {
+			setDegreeCreditsError(
+				"Expected Total Degree Credits must be a whole number greater than 0.",
+			);
+			return;
+		}
+
+		setIsSavingDegreeCredits(true);
+		try {
+			await setUserTotalDegreeCredits(user.id, parsed);
+			setTotalDegreeCredits(parsed);
+			setTotalDegreeCreditsInput(String(parsed));
+			setDegreeCreditsMessage("Expected Total Degree Credits saved.");
+		} catch (error) {
+			setDegreeCreditsError(
+				error instanceof Error
+					? error.message
+					: "Failed to save Expected Total Degree Credits.",
+			);
+		} finally {
+			setIsSavingDegreeCredits(false);
+		}
+	};
 
 	const handleSaveAcademicBase = async () => {
 		if (!user) return;
@@ -162,8 +221,10 @@ export default function ProfilePage() {
 		const parsedCgpa = Number(cgpaRaw);
 		const parsedCredits = Number(creditsRaw);
 
-		if (!Number.isFinite(parsedCgpa) || parsedCgpa < 0 || parsedCgpa > 5) {
-			setBaseError("Base CGPA must be a number between 0.00 and 5.00.");
+		if (!Number.isFinite(parsedCgpa) || parsedCgpa < 0 || parsedCgpa > maxScaleWeight) {
+			setBaseError(
+				`Base CGPA must be a number between 0.00 and ${maxScaleWeight.toFixed(2)}.`,
+			);
 			return;
 		}
 
@@ -221,8 +282,10 @@ export default function ProfilePage() {
 		}
 
 		const parsed = Number(trimmed);
-		if (!Number.isFinite(parsed) || parsed < 0 || parsed > 5) {
-			setGoalError("Target GPA must be a number between 0.00 and 5.00.");
+		if (!Number.isFinite(parsed) || parsed < 0 || parsed > maxScaleWeight) {
+			setGoalError(
+				`Target GPA must be a number between 0.00 and ${maxScaleWeight.toFixed(2)}.`,
+			);
 			return;
 		}
 
@@ -321,12 +384,15 @@ export default function ProfilePage() {
 											type="number"
 											className="input input-bordered w-full"
 											min={0}
-											max={5}
+											max={maxScaleWeight}
 											step={0.01}
 											placeholder="e.g. 3.85"
 											value={baseCgpaInput}
 											onChange={(event) => setBaseCgpaInput(event.target.value)}
 										/>
+										<p className="text-xs opacity-70 mt-1">
+											Scale maximum: {maxScaleWeight.toFixed(1)}
+										</p>
 									</div>
 
 									<div>
@@ -384,12 +450,15 @@ export default function ProfilePage() {
 											type="number"
 											className="input input-bordered w-full"
 											min={0}
-											max={5}
+											max={maxScaleWeight}
 											step={0.01}
 											placeholder="e.g. 4.20"
 											value={targetGpaInput}
 											onChange={(event) => setTargetGpaInput(event.target.value)}
 										/>
+										<p className="text-xs opacity-70 mt-1">
+											Scale maximum: {maxScaleWeight.toFixed(1)}
+										</p>
 									</div>
 									<button
 										type="button"
@@ -427,6 +496,56 @@ export default function ProfilePage() {
 										Set a target GPA to track your progress and receive performance alerts.
 									</p>
 								)}
+							</div>
+						</div>
+
+						<div className="card bg-base-100 shadow-xl">
+							<div className="card-body">
+								<h2 className="card-title">Degree Requirement</h2>
+
+								{degreeCreditsError && (
+									<div role="alert" className="alert alert-error">
+										<AlertCircle className="h-6 w-6 shrink-0" />
+										<span>{degreeCreditsError}</span>
+									</div>
+								)}
+
+								{degreeCreditsMessage && (
+									<div role="status" className="alert alert-success">
+										<span>{degreeCreditsMessage}</span>
+									</div>
+								)}
+
+								<div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+									<div className="sm:col-span-2">
+										<label htmlFor="total-degree-credits-input" className="label">
+											<span className="label-text font-medium">
+												Expected Total Degree Credits
+											</span>
+										</label>
+										<input
+											id="total-degree-credits-input"
+											type="number"
+											className="input input-bordered w-full"
+											min={1}
+											step={1}
+											placeholder="e.g. 150"
+											value={totalDegreeCreditsInput}
+											onChange={(event) => setTotalDegreeCreditsInput(event.target.value)}
+										/>
+										<p className="text-xs opacity-70 mt-1">
+											Current setting: {totalDegreeCredits} credits
+										</p>
+									</div>
+									<button
+										type="button"
+										className="btn btn-primary"
+										onClick={() => void handleSaveTotalDegreeCredits()}
+										disabled={isSavingDegreeCredits}
+									>
+										{isSavingDegreeCredits ? "Saving..." : "Save Credits"}
+									</button>
+								</div>
 							</div>
 						</div>
 
@@ -474,6 +593,14 @@ export default function ProfilePage() {
 									</div>
 								</div>
 							</div>
+						</div>
+
+						<div>
+							<GradingScaleConfig
+								userId={user.id}
+								initialScale={gradingScale}
+								onSaved={(scale) => setGradingScale(scale)}
+							/>
 						</div>
 
 						<div className="card bg-base-100 shadow-xl">

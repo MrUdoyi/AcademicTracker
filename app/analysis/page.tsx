@@ -21,7 +21,14 @@ import { usePendingInsightsProcessor } from "../lib/hooks/use-pending-insights-p
 import { useInsightsSyncStatus } from "../lib/hooks/use-insights-sync-status";
 import { getUserCourses } from "../lib/storage/course";
 import { enqueuePendingAction } from "../lib/storage/queue";
-import { getUserAcademicBase, type AcademicBaseValues } from "../lib/storage/user";
+import {
+	DEFAULT_TOTAL_DEGREE_CREDITS,
+	getUserAcademicBase,
+	getUserGradingScale,
+	getUserTotalDegreeCredits,
+	type AcademicBaseValues,
+} from "../lib/storage/user";
+import type { GradingScale } from "../lib/schemas/grading-scale";
 import { generateStudyTips } from "../lib/utils/recommendations";
 import {
 	calculateCGPA,
@@ -72,12 +79,13 @@ function getAiSyncStatusLabel(
 
 function getCoursePerformanceLevel(
 	course: Awaited<ReturnType<typeof getUserCourses>>[number],
+	gradingScale?: GradingScale | null,
 ): Exclude<PerformanceLevel, "all"> {
 	if (course.status === "in-progress" || !course.grade) {
 		return "in-progress";
 	}
 
-	const points = gradeToPoints(course.grade);
+	const points = gradeToPoints(course.grade, gradingScale);
 	if (points >= 4.5) return "excellent";
 	if (points >= 4.0) return "good";
 	if (points >= 3.0) return "average";
@@ -111,6 +119,10 @@ export default function AnalysisPage() {
 	const [hasAttemptedAiThisSession, setHasAttemptedAiThisSession] =
 		useState(false);
 	const [academicBase, setAcademicBase] = useState<AcademicBaseValues | null>(null);
+	const [gradingScale, setGradingScale] = useState<GradingScale | null>(null);
+	const [totalDegreeCredits, setTotalDegreeCredits] = useState<number>(
+		DEFAULT_TOTAL_DEGREE_CREDITS,
+	);
 	const [selectedSemester, setSelectedSemester] = useState("all");
 	const [selectedCourse, setSelectedCourse] = useState("all");
 	const [selectedPerformance, setSelectedPerformance] =
@@ -131,17 +143,23 @@ export default function AnalysisPage() {
 				if (isMounted) {
 					setCourses([]);
 					setAcademicBase(null);
+					setGradingScale(null);
+					setTotalDegreeCredits(DEFAULT_TOTAL_DEGREE_CREDITS);
 				}
 				return;
 			}
 
-			const [result, base] = await Promise.all([
+			const [result, base, scale, degreeCredits] = await Promise.all([
 				getUserCourses(user.id),
 				getUserAcademicBase(user.id),
+				getUserGradingScale(user.id),
+				getUserTotalDegreeCredits(user.id),
 			]);
 			if (isMounted) {
 				setCourses(result);
 				setAcademicBase(base);
+				setGradingScale(scale);
+				setTotalDegreeCredits(degreeCredits);
 			}
 		};
 
@@ -217,7 +235,7 @@ export default function AnalysisPage() {
 		() =>
 			courses.filter((course) => {
 				const semesterLabel = `${course.semester} ${course.year}`;
-				const performanceLevel = getCoursePerformanceLevel(course);
+				const performanceLevel = getCoursePerformanceLevel(course, gradingScale);
 
 				const semesterMatch =
 					selectedSemester === "all" || semesterLabel === selectedSemester;
@@ -228,12 +246,12 @@ export default function AnalysisPage() {
 
 				return semesterMatch && courseMatch && performanceMatch;
 			}),
-		[courses, selectedSemester, selectedCourse, selectedPerformance],
+		[courses, gradingScale, selectedSemester, selectedCourse, selectedPerformance],
 	);
 
 	const filteredSemesterPerformance = useMemo(
-		() => getSemesterPerformance(filteredCourses),
-		[filteredCourses],
+		() => getSemesterPerformance(filteredCourses, gradingScale),
+		[filteredCourses, gradingScale],
 	);
 
 	const chartData = useMemo(
@@ -245,14 +263,14 @@ export default function AnalysisPage() {
 		[filteredSemesterPerformance],
 	);
 
-	const cgpa = calculateCGPA(filteredCourses, academicBase);
+	const cgpa = calculateCGPA(filteredCourses, academicBase, gradingScale);
 	const totalCredits = getTotalCredits(
 		filteredCourses,
 		academicBase?.baseTotalCredits || 0,
 	);
 	const completedCourses = getTotalCoursesCompleted(filteredCourses);
-	const degreeProgress = calculateDegreeProgress(totalCredits);
-	const insights = generateStudyTips(filteredCourses, academicBase);
+	const degreeProgress = calculateDegreeProgress(totalCredits, totalDegreeCredits);
+	const insights = generateStudyTips(filteredCourses, academicBase, gradingScale);
 
 	if (loading) {
 		return (
@@ -267,7 +285,10 @@ export default function AnalysisPage() {
 	const handleExportPDF = () => {
 		setIsGeneratingPDF(true);
 		try {
-			downloadTranscript(user, courses, { includeInsights: true });
+			downloadTranscript(user, courses, {
+				includeInsights: true,
+				totalDegreeCredits,
+			});
 		} catch (error) {
 			console.error("Failed to generate PDF:", error);
 		} finally {
@@ -418,7 +439,7 @@ export default function AnalysisPage() {
 									<div className="stat-value text-secondary">
 										{degreeProgress.toFixed(0)}%
 									</div>
-									<div className="stat-desc">{totalCredits}/120 credits</div>
+									<div className="stat-desc">{totalCredits}/{totalDegreeCredits} credits</div>
 								</div>
 							</div>
 
