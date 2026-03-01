@@ -31,6 +31,14 @@ import {
 } from "../lib/utils/gpa";
 import { downloadTranscript } from "../lib/utils/pdf";
 
+function formatAiSyncDetail(detail: string): string {
+	if (detail.includes("Gemini API key is not configured")) {
+		return "AI temporarily unavailable";
+	}
+
+	return detail;
+}
+
 export default function AnalysisPage() {
 	const router = useRouter();
 	const { user, loading } = useAuth();
@@ -87,13 +95,14 @@ export default function AnalysisPage() {
 	useEffect(() => {
 		if (!successMessage) return;
 		setAiSuccess(successMessage);
+		recordSuccess(successMessage);
 
 		const timer = window.setTimeout(() => {
 			setAiSuccess(null);
 		}, 4000);
 
 		return () => window.clearTimeout(timer);
-	}, [successMessage]);
+	}, [successMessage, recordSuccess]);
 
 	// Show error message from pending processor
 	useEffect(() => {
@@ -454,7 +463,9 @@ export default function AnalysisPage() {
 									<p className="text-xs opacity-80">
 										Last AI sync: {new Date(lastAiSync.at).toLocaleString()} ·{" "}
 										{lastAiSync.status === "success" ? "Success" : "Failed"}
-										{lastAiSync.detail ? ` (${lastAiSync.detail})` : ""}
+										{lastAiSync.detail
+											? ` (${formatAiSyncDetail(lastAiSync.detail)})`
+											: ""}
 									</p>
 								)}
 

@@ -36,7 +36,7 @@ export async function generateGeminiContent(
 		if (!process.env.GEMINI_API_KEY) {
 			return {
 				success: false,
-				error: "Gemini API key is not configured",
+				error: "AI temporarily unavailable. Please try again later.",
 			};
 		}
 
