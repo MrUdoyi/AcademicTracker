@@ -6,6 +6,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../lib/hooks/use-auth";
 import type { Course } from "../lib/schemas/course";
 import { getUserCourses } from "../lib/storage/course";
+import {
+	getReadNotificationIds,
+	saveReadNotificationIds,
+} from "../lib/storage/notifications";
 import { getUserTargetGpa } from "../lib/storage/user";
 import { calculateCGPA, getCoursesInProgress, gradeToPoints } from "../lib/utils/gpa";
 
@@ -96,9 +100,10 @@ export function NotificationCenter() {
 			if (!isMounted) return;
 
 			const nextReminders = buildReminders(courses, targetGpa);
+			const storedReadIds = getReadNotificationIds(user.id);
 			setReminders(nextReminders);
-			setReadIds((current) =>
-				current.filter((id) => nextReminders.some((item) => item.id === id)),
+			setReadIds(
+				storedReadIds.filter((id) => nextReminders.some((item) => item.id === id)),
 			);
 		};
 
@@ -108,6 +113,11 @@ export function NotificationCenter() {
 			isMounted = false;
 		};
 	}, [user, pathname]);
+
+	useEffect(() => {
+		if (!user) return;
+		saveReadNotificationIds(user.id, readIds);
+	}, [readIds, user]);
 
 	const unreadCount = useMemo(
 		() => reminders.filter((item) => !readIds.includes(item.id)).length,
