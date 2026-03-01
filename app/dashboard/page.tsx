@@ -3,7 +3,16 @@
 import { FileText, Plus, Sparkles, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+	Bar,
+	BarChart,
+	CartesianGrid,
+	ResponsiveContainer,
+	Tooltip,
+	XAxis,
+	YAxis,
+} from "recharts";
 import { Navbar } from "../components/navbar";
 import { OfflineBanner } from "../components/offline-banner";
 import { useAuth } from "../lib/hooks/use-auth";
@@ -13,6 +22,7 @@ import {
 	calculateCGPA,
 	calculateDegreeProgress,
 	generateInsights,
+	gradeToPoints,
 	getCoursesInProgress,
 	getSemesterPerformance,
 	getTotalCoursesCompleted,
@@ -20,11 +30,35 @@ import {
 } from "../lib/utils/gpa";
 import { downloadTranscript } from "../lib/utils/pdf";
 
+type PerformanceLevel =
+	| "all"
+	| "excellent"
+	| "good"
+	| "average"
+	| "needs-improvement"
+	| "in-progress";
+
+function getCoursePerformanceLevel(course: Course): Exclude<PerformanceLevel, "all"> {
+	if (course.status === "in-progress" || !course.grade) {
+		return "in-progress";
+	}
+
+	const points = gradeToPoints(course.grade);
+	if (points >= 4.5) return "excellent";
+	if (points >= 4.0) return "good";
+	if (points >= 3.0) return "average";
+	return "needs-improvement";
+}
+
 export default function DashboardPage() {
 	const router = useRouter();
 	const { user, loading } = useAuth();
 	const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 	const [courses, setCourses] = useState<Course[]>([]);
+	const [selectedSemester, setSelectedSemester] = useState("all");
+	const [selectedCourse, setSelectedCourse] = useState("all");
+	const [selectedPerformance, setSelectedPerformance] =
+		useState<PerformanceLevel>("all");
 
 	useEffect(() => {
 		if (!loading && !user) {
@@ -52,6 +86,60 @@ export default function DashboardPage() {
 		};
 	}, [user]);
 
+	const cgpa = calculateCGPA(courses);
+	const totalCredits = getTotalCredits(courses);
+	const completedCourses = getTotalCoursesCompleted(courses);
+	const inProgressCourses = getCoursesInProgress(courses);
+	const degreeProgress = calculateDegreeProgress(totalCredits);
+	const semesterPerformance = getSemesterPerformance(courses);
+
+	const semesterOptions = useMemo(() => {
+		const values = Array.from(
+			new Set(courses.map((course) => `${course.semester} ${course.year}`)),
+		);
+
+		return values.sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+	}, [courses]);
+
+	const courseOptions = useMemo(() => {
+		const values = Array.from(new Set(courses.map((course) => course.courseCode)));
+		return values.sort((a, b) => a.localeCompare(b));
+	}, [courses]);
+
+	const filteredCourses = useMemo(
+		() =>
+			courses.filter((course) => {
+				const semesterLabel = `${course.semester} ${course.year}`;
+				const courseLevel = getCoursePerformanceLevel(course);
+
+				const semesterMatch =
+					selectedSemester === "all" || semesterLabel === selectedSemester;
+				const courseMatch =
+					selectedCourse === "all" || course.courseCode === selectedCourse;
+				const performanceMatch =
+					selectedPerformance === "all" || courseLevel === selectedPerformance;
+
+				return semesterMatch && courseMatch && performanceMatch;
+			}),
+		[courses, selectedSemester, selectedCourse, selectedPerformance],
+	);
+
+	const filteredSemesterPerformance = useMemo(
+		() => getSemesterPerformance(filteredCourses),
+		[filteredCourses],
+	);
+
+	const semesterChartData = useMemo(
+		() =>
+			filteredSemesterPerformance.map((sem) => ({
+				name: `${sem.semester} ${sem.year}`,
+				gpa: Number(sem.gpa.toFixed(2)),
+			})),
+		[filteredSemesterPerformance],
+	);
+
+	const insights = generateInsights(filteredCourses);
+
 	if (loading) {
 		return (
 			<div className="min-h-screen flex items-center justify-center">
@@ -61,14 +149,6 @@ export default function DashboardPage() {
 	}
 
 	if (!user) return null;
-
-	const cgpa = calculateCGPA(courses);
-	const totalCredits = getTotalCredits(courses);
-	const completedCourses = getTotalCoursesCompleted(courses);
-	const inProgressCourses = getCoursesInProgress(courses);
-	const degreeProgress = calculateDegreeProgress(totalCredits);
-	const semesterPerformance = getSemesterPerformance(courses);
-	const insights = generateInsights(courses);
 
 	const handleExportTranscript = () => {
 		setIsGeneratingPDF(true);
@@ -141,6 +221,112 @@ export default function DashboardPage() {
 						<p className="text-sm opacity-70">
 							{totalCredits} of 120 credits completed
 						</p>
+					</div>
+				</div>
+
+				<div className="card bg-base-100 shadow-xl mb-6">
+					<div className="card-body gap-4">
+						<h2 className="card-title">Performance Trends</h2>
+
+						<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+							<label className="form-control w-full">
+								<span className="label-text font-medium mb-1">Semester</span>
+								<select
+									className="select select-bordered w-full"
+									value={selectedSemester}
+									onChange={(event) => setSelectedSemester(event.target.value)}
+								>
+									<option value="all">All semesters</option>
+									{semesterOptions.map((semester) => (
+										<option key={semester} value={semester}>
+											{semester}
+										</option>
+									))}
+								</select>
+							</label>
+
+							<label className="form-control w-full">
+								<span className="label-text font-medium mb-1">Course</span>
+								<select
+									className="select select-bordered w-full"
+									value={selectedCourse}
+									onChange={(event) => setSelectedCourse(event.target.value)}
+								>
+									<option value="all">All courses</option>
+									{courseOptions.map((courseCode) => (
+										<option key={courseCode} value={courseCode}>
+											{courseCode}
+										</option>
+									))}
+								</select>
+							</label>
+
+							<label className="form-control w-full">
+								<span className="label-text font-medium mb-1">Performance</span>
+								<select
+									className="select select-bordered w-full"
+									value={selectedPerformance}
+									onChange={(event) =>
+										setSelectedPerformance(event.target.value as PerformanceLevel)
+									}
+								>
+									<option value="all">All levels</option>
+									<option value="excellent">Excellent (A / B+)</option>
+									<option value="good">Good (B)</option>
+									<option value="average">Average (C+ / C)</option>
+									<option value="needs-improvement">Needs improvement (D+ and below)</option>
+									<option value="in-progress">In progress</option>
+								</select>
+							</label>
+						</div>
+
+						<p className="text-sm opacity-70">
+							Showing {filteredCourses.length} of {courses.length} courses based on current
+							filters.
+						</p>
+
+						{semesterChartData.length > 0 ? (
+							<div className="h-72 w-full text-primary">
+								<ResponsiveContainer width="100%" height="100%">
+									<BarChart data={semesterChartData}>
+										<CartesianGrid strokeDasharray="3 3" />
+										<XAxis dataKey="name" />
+										<YAxis domain={[0, 5]} />
+										<Tooltip />
+										<Bar dataKey="gpa" fill="currentColor" radius={[6, 6, 0, 0]} />
+									</BarChart>
+								</ResponsiveContainer>
+							</div>
+						) : (
+							<p className="text-sm opacity-70">
+								No completed courses match the selected filters.
+							</p>
+						)}
+
+						{filteredSemesterPerformance.length > 0 && (
+							<div className="overflow-x-auto">
+								<table className="table table-sm">
+									<thead>
+										<tr>
+											<th>Semester</th>
+											<th>Year</th>
+											<th>GPA</th>
+										</tr>
+									</thead>
+									<tbody>
+										{filteredSemesterPerformance.map((sem) => (
+											<tr key={`${sem.semester}-${sem.year}`}>
+												<td>{sem.semester}</td>
+												<td>{sem.year}</td>
+												<td>
+													<span className="badge badge-primary">{sem.gpa.toFixed(2)}</span>
+												</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</div>
+						)}
 					</div>
 				</div>
 
