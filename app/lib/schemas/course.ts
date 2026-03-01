@@ -41,6 +41,16 @@ export const CourseSchema = v.object({
 		v.maxValue(2100, "Year must be at most 2100"),
 	),
 	status: v.picklist(["in-progress", "completed"]),
+	targetGrade: v.optional(GradeSchema),
+	currentScore: v.optional(
+		v.pipe(
+			v.number(),
+			v.minValue(0, "Current score must be at least 0"),
+		),
+	),
+	maxAssessmentScore: v.optional(
+		v.picklist([30, 40], "Max assessment score must be 30 or 40"),
+	),
 	createdAt: v.string(),
 	updatedAt: v.string(),
 });
@@ -72,6 +82,16 @@ export const CreateCourseSchema = v.object({
 		v.maxValue(2100, "Year must be at most 2100"),
 	),
 	status: v.picklist(["in-progress", "completed"]),
+	targetGrade: v.optional(GradeSchema),
+	currentScore: v.optional(
+		v.pipe(
+			v.number(),
+			v.minValue(0, "Current score must be at least 0"),
+		),
+	),
+	maxAssessmentScore: v.optional(
+		v.picklist([30, 40], "Max assessment score must be 30 or 40"),
+	),
 });
 
 export type Grade = v.InferOutput<typeof GradeSchema>;

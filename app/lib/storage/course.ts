@@ -8,6 +8,9 @@ type CourseRow = {
 	title: string;
 	units: number;
 	grade: string | null;
+	target_grade: string | null;
+	current_score: number | null;
+	max_assessment_score: number | null;
 	semester: "First" | "Second" | "Summer";
 	year: number;
 	status: "in-progress" | "completed";
@@ -30,6 +33,9 @@ function mapRowToCourse(row: CourseRow): Course {
 		title: row.title,
 		units: row.units,
 		grade: toGrade(row.grade),
+		targetGrade: toGrade(row.target_grade),
+		currentScore: row.current_score ?? 0,
+		maxAssessmentScore: row.max_assessment_score ?? 30,
 		semester: row.semester,
 		year: row.year,
 		status: row.status,
@@ -89,6 +95,9 @@ export async function createCourse(userId: string, data: CreateCourseInput): Pro
 		title: data.title,
 		units: data.units,
 		grade: data.grade || null,
+		target_grade: data.targetGrade || null,
+		current_score: data.currentScore ?? 0,
+		max_assessment_score: data.maxAssessmentScore ?? 30,
 		semester: data.semester,
 		year: data.year,
 		status: data.status,
@@ -122,6 +131,10 @@ export async function updateCourse(
 	if (data.title !== undefined) updates.title = data.title;
 	if (data.units !== undefined) updates.units = data.units;
 	if (data.grade !== undefined) updates.grade = data.grade || null;
+	if (data.targetGrade !== undefined) updates.target_grade = data.targetGrade || null;
+	if (data.currentScore !== undefined) updates.current_score = data.currentScore;
+	if (data.maxAssessmentScore !== undefined)
+		updates.max_assessment_score = data.maxAssessmentScore;
 	if (data.semester !== undefined) updates.semester = data.semester;
 	if (data.year !== undefined) updates.year = data.year;
 	if (data.status !== undefined) updates.status = data.status;

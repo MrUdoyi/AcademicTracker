@@ -29,6 +29,9 @@ create table if not exists public.courses (
   title text not null,
   units integer not null check (units between 1 and 10),
   grade text null check (grade in ('A','B+','B','C+','C','D+','D','E','F')),
+  target_grade text null check (target_grade in ('A','B+','B','C+','C','D+','D','E','F')),
+  current_score numeric(6,2) not null default 0 check (current_score >= 0),
+  max_assessment_score integer not null default 30 check (max_assessment_score in (30, 40)),
   semester text not null check (semester in ('First','Second','Summer')),
   year integer not null check (year between 2000 and 2100),
   status text not null check (status in ('in-progress','completed')),
@@ -36,6 +39,15 @@ create table if not exists public.courses (
   updated_at timestamptz not null default now(),
   unique (user_id, course_code)
 );
+
+alter table public.courses
+  add column if not exists target_grade text null check (target_grade in ('A','B+','B','C+','C','D+','D','E','F'));
+
+alter table public.courses
+  add column if not exists current_score numeric(6,2) not null default 0 check (current_score >= 0);
+
+alter table public.courses
+  add column if not exists max_assessment_score integer not null default 30 check (max_assessment_score in (30, 40));
 
 create table if not exists public.insights (
   user_id uuid primary key references auth.users(id) on delete cascade,
