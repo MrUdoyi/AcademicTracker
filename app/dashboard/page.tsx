@@ -13,11 +13,12 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
+import { InProgressCourseCard } from "../components/in-progress-course-card";
 import { Navbar } from "../components/navbar";
 import { OfflineBanner } from "../components/offline-banner";
 import { useAuth } from "../lib/hooks/use-auth";
 import type { Course } from "../lib/schemas/course";
-import { getUserCourses } from "../lib/storage/course";
+import { getUserCourses, updateCourse } from "../lib/storage/course";
 import { getUserAcademicBase, type AcademicBaseValues } from "../lib/storage/user";
 import { generateStudyTips } from "../lib/utils/recommendations";
 import {
@@ -101,6 +102,10 @@ export default function DashboardPage() {
 	const totalCredits = getTotalCredits(courses, academicBase?.baseTotalCredits || 0);
 	const completedCourses = getTotalCoursesCompleted(courses);
 	const inProgressCourses = getCoursesInProgress(courses);
+	const inProgressCourseList = useMemo(
+		() => courses.filter((course) => course.status === "in-progress"),
+		[courses],
+	);
 	const degreeProgress = calculateDegreeProgress(totalCredits);
 	const semesterPerformance = getSemesterPerformance(courses);
 
@@ -170,6 +175,23 @@ export default function DashboardPage() {
 		} finally {
 			setIsGeneratingPDF(false);
 		}
+	};
+
+	const handleSaveInProgressCourse = async (payload: {
+		courseId: string;
+		targetGrade?: Course["targetGrade"];
+		currentScore: number;
+		maxAssessmentScore: 30 | 40;
+	}) => {
+		const updated = await updateCourse(payload.courseId, {
+			targetGrade: payload.targetGrade,
+			currentScore: payload.currentScore,
+			maxAssessmentScore: payload.maxAssessmentScore,
+		});
+
+		setCourses((prev) =>
+			prev.map((course) => (course.id === updated.id ? updated : course)),
+		);
 	};
 
 	return (
@@ -337,6 +359,31 @@ export default function DashboardPage() {
 									</tbody>
 								</table>
 							</div>
+						)}
+					</div>
+				</div>
+
+				<div className="card bg-base-100 shadow-xl mb-6">
+					<div className="card-body gap-4">
+						<h2 className="card-title">In-Progress Course Planner</h2>
+						{inProgressCourseList.length > 0 ? (
+							<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+								{inProgressCourseList.map((course) => (
+									<InProgressCourseCard
+										key={course.id}
+										courseId={course.id}
+										courseCode={course.courseCode}
+										targetGrade={course.targetGrade}
+										currentScore={course.currentScore}
+										maxAssessmentScore={course.maxAssessmentScore}
+										onSave={handleSaveInProgressCourse}
+									/>
+								))}
+							</div>
+						) : (
+							<p className="text-sm opacity-70">
+								No in-progress courses yet. Add one to track exam targets.
+							</p>
 						)}
 					</div>
 				</div>
