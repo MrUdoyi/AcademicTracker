@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
 	getUserHasSeenOnboarding,
 	setUserHasSeenOnboarding,
@@ -33,6 +33,10 @@ const TOUR_STEPS: TourStep[] = [
 	},
 ];
 
+function getOnboardingLocalKey(userId: string): string {
+	return `academic-tracker:onboarding-seen:${userId}`;
+}
+
 export function FeatureTour({ userId, restartToken = 0 }: FeatureTourProps) {
 	const [runTour, setRunTour] = useState(false);
 	const [activeStepIndex, setActiveStepIndex] = useState(0);
@@ -41,9 +45,23 @@ export function FeatureTour({ userId, restartToken = 0 }: FeatureTourProps) {
 		let mounted = true;
 
 		const loadOnboardingFlag = async () => {
+			const localSeen =
+				typeof window !== "undefined" &&
+				window.localStorage.getItem(getOnboardingLocalKey(userId)) === "true";
+
+			if (localSeen) {
+				if (!mounted) return;
+				setRunTour(false);
+				return;
+			}
+
 			const hasSeenOnboarding = await getUserHasSeenOnboarding(userId);
 			if (!mounted) return;
 			if (!hasSeenOnboarding) {
+				if (typeof window !== "undefined") {
+					window.localStorage.setItem(getOnboardingLocalKey(userId), "true");
+				}
+				void setUserHasSeenOnboarding(userId, true);
 				setActiveStepIndex(0);
 				setRunTour(true);
 			}
@@ -88,10 +106,13 @@ export function FeatureTour({ userId, restartToken = 0 }: FeatureTourProps) {
 		element.scrollIntoView({ behavior: "smooth", block: "center" });
 	}, [runTour, activeStep, activeStepIndex, userId]);
 
-	const finishTour = () => {
+	const finishTour = useCallback(() => {
 		setRunTour(false);
+		if (typeof window !== "undefined") {
+			window.localStorage.setItem(getOnboardingLocalKey(userId), "true");
+		}
 		void setUserHasSeenOnboarding(userId, true);
-	};
+	}, [userId]);
 
 	const handleNext = () => {
 		if (activeStepIndex >= TOUR_STEPS.length - 1) {
@@ -113,7 +134,7 @@ export function FeatureTour({ userId, restartToken = 0 }: FeatureTourProps) {
 
 		window.addEventListener("keydown", handleEscape);
 		return () => window.removeEventListener("keydown", handleEscape);
-	}, [runTour, userId]);
+	}, [finishTour, runTour]);
 
 	if (!runTour || !activeStep || !targetRect) {
 		return null;
