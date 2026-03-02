@@ -291,19 +291,32 @@ export default function DashboardPage() {
 					</div>
 				</div>
 
-				<div className="mb-6">
-					<TargetSimulator
-						userId={user.id}
-						courses={courses}
-						academicBase={academicBase}
-						gradingScale={gradingScale}
-						totalDegreeCredits={totalDegreeCredits}
-					/>
-				</div>
+				<details className="card bg-base-100 shadow-xl mb-6">
+					<summary className="card-body cursor-pointer">
+						<h2 className="card-title">Advanced Planner: Target Simulator</h2>
+						<p className="text-sm opacity-70">
+							Set and simulate complex target scenarios.
+						</p>
+					</summary>
+					<div className="card-body pt-0">
+						<TargetSimulator
+							userId={user.id}
+							courses={courses}
+							academicBase={academicBase}
+							gradingScale={gradingScale}
+							totalDegreeCredits={totalDegreeCredits}
+						/>
+					</div>
+				</details>
 
-				<div className="card bg-base-100 shadow-xl mb-6">
-					<div className="card-body gap-4">
+				<details className="card bg-base-100 shadow-xl mb-6">
+					<summary className="card-body cursor-pointer">
 						<h2 className="card-title">Performance Trends</h2>
+						<p className="text-sm opacity-70">
+							View detailed charts and filters for historical performance.
+						</p>
+					</summary>
+					<div className="card-body gap-4 pt-0">
 
 						<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 							<label className="form-control w-full">
@@ -405,11 +418,16 @@ export default function DashboardPage() {
 							</div>
 						)}
 					</div>
-				</div>
+				</details>
 
-				<div className="card bg-base-100 shadow-xl mb-6">
-					<div className="card-body gap-4">
+				<details className="card bg-base-100 shadow-xl mb-6">
+					<summary className="card-body cursor-pointer">
 						<h2 className="card-title">In-Progress Course Planner</h2>
+						<p className="text-sm opacity-70">
+							Track course-level targets and required exam outcomes.
+						</p>
+					</summary>
+					<div className="card-body gap-4 pt-0">
 						{inProgressCourseList.length > 0 ? (
 							<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 								{inProgressCourseList.map((course) => (
@@ -431,7 +449,7 @@ export default function DashboardPage() {
 							</p>
 						)}
 					</div>
-				</div>
+				</details>
 
 				<div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
 					<div className="card bg-base-100 shadow-xl">

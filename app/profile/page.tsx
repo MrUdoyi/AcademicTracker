@@ -420,13 +420,14 @@ export default function ProfilePage() {
 					</div>
 
 					<div className="lg:col-span-2 space-y-6">
-						<div className="card bg-base-100 shadow-xl">
-							<div className="card-body">
-								<h2 className="card-title">Quick Start (Higher Level)</h2>
+						<details className="card bg-base-100 shadow-xl">
+							<summary className="card-body cursor-pointer">
+								<h2 className="card-title">Advanced: Quick Start (Higher Level)</h2>
 								<p className="text-sm opacity-70">
-									Enter your existing CGPA and total completed credits so new semesters
-									continue from your previous academic record.
+									Set base CGPA/credits only if you are migrating with prior history.
 								</p>
+							</summary>
+							<div className="card-body pt-0">
 
 								{baseError && (
 									<div role="alert" className="alert alert-error">
@@ -488,7 +489,7 @@ export default function ProfilePage() {
 									</button>
 								</div>
 							</div>
-						</div>
+						</details>
 
 						<div className="card bg-base-100 shadow-xl">
 							<div className="card-body">
@@ -727,13 +728,21 @@ export default function ProfilePage() {
 							</div>
 						</div>
 
-						<div>
-							<GradingScaleConfig
-								userId={user.id}
-								initialScale={gradingScale}
-								onSaved={(scale) => setGradingScale(scale)}
-							/>
-						</div>
+						<details className="card bg-base-100 shadow-xl">
+							<summary className="card-body cursor-pointer">
+								<h2 className="card-title">Advanced: Grading Scale</h2>
+								<p className="text-sm opacity-70">
+									Customize grading thresholds only if your institution differs.
+								</p>
+							</summary>
+							<div className="card-body pt-0">
+								<GradingScaleConfig
+									userId={user.id}
+									initialScale={gradingScale}
+									onSaved={(scale) => setGradingScale(scale)}
+								/>
+							</div>
+						</details>
 
 						<div className="card bg-base-100 shadow-xl">
 							<div className="card-body">
