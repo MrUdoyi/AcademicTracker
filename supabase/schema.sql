@@ -11,6 +11,7 @@ create table if not exists public.profiles (
   total_degree_credits integer null check (total_degree_credits > 0),
   current_level integer null check (current_level between 100 and 900),
   current_semester text null check (current_semester in ('First','Second','Summer')),
+  has_seen_onboarding boolean not null default false,
   base_cgpa numeric(3,2) null check (base_cgpa >= 0 and base_cgpa <= 5),
   base_total_credits integer null check (base_total_credits >= 0),
   target_gpa numeric(3,2) null check (target_gpa >= 0 and target_gpa <= 5),
@@ -28,6 +29,9 @@ alter table public.profiles
 
 alter table public.profiles
   add column if not exists current_semester text null check (current_semester in ('First','Second','Summer'));
+
+alter table public.profiles
+  add column if not exists has_seen_onboarding boolean not null default false;
 
 alter table public.profiles
   add column if not exists base_cgpa numeric(3,2) null check (base_cgpa >= 0 and base_cgpa <= 5);

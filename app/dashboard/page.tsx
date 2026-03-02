@@ -13,6 +13,7 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
+import { FeatureTour } from "../components/feature-tour";
 import { InProgressCourseCard } from "../components/in-progress-course-card";
 import { Navbar } from "../components/navbar";
 import { OfflineBanner } from "../components/offline-banner";
@@ -76,6 +77,7 @@ export default function DashboardPage() {
 	const [selectedCourse, setSelectedCourse] = useState("all");
 	const [selectedPerformance, setSelectedPerformance] =
 		useState<PerformanceLevel>("all");
+	const [tourRestartToken, setTourRestartToken] = useState(0);
 
 	useEffect(() => {
 		if (!loading && !user) {
@@ -230,7 +232,11 @@ export default function DashboardPage() {
 
 	return (
 		<div className="min-h-screen bg-base-200">
-			<Navbar userName={user.name} />
+			<FeatureTour userId={user.id} restartToken={tourRestartToken} />
+			<Navbar
+				userName={user.name}
+				onHelpClick={() => setTourRestartToken((prev) => prev + 1)}
+			/>
 
 			<div className="container mx-auto p-4 px-4 sm:px-6 lg:px-8 max-w-7xl">
 				<OfflineBanner />
@@ -240,36 +246,50 @@ export default function DashboardPage() {
 					<p className="opacity-70 mt-1">Academic progress overview</p>
 				</div>
 
+				<div id="quick-start-card" className="card bg-base-100 shadow-xl mb-6">
+					<div className="card-body">
+						<h2 className="card-title">Quick Start</h2>
+						<p className="text-sm opacity-70">
+							Enter your current CGPA in Profile once, then continue tracking only your new courses.
+						</p>
+						<div className="card-actions justify-start">
+							<Link href="/profile" className="btn btn-sm btn-primary">
+								Open Profile Setup
+							</Link>
+						</div>
+					</div>
+				</div>
+
 				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-					<div className="stats shadow">
+					<div className="stats stats-vertical w-full shadow h-full">
 						<div className="stat">
-							<div className="stat-title">Current CGPA</div>
-							<div className="stat-value text-primary">{cgpa.toFixed(2)}</div>
-							<div className="stat-desc">Out of 5.0</div>
+							<div className="stat-title text-sm">Current CGPA</div>
+							<div className="stat-value text-primary text-3xl">{cgpa.toFixed(2)}</div>
+							<div className="stat-desc text-xs">Out of 5.0</div>
 						</div>
 					</div>
 
-					<div className="stats shadow">
+					<div className="stats stats-vertical w-full shadow h-full">
 						<div className="stat">
-							<div className="stat-title">Credits Completed</div>
-							<div className="stat-value text-secondary">{totalCredits}</div>
-							<div className="stat-desc">Out of {totalDegreeCredits} total</div>
+							<div className="stat-title text-sm">Credits Completed</div>
+							<div className="stat-value text-secondary text-3xl">{totalCredits}</div>
+							<div className="stat-desc text-xs">Out of {totalDegreeCredits} total</div>
 						</div>
 					</div>
 
-					<div className="stats shadow">
+					<div className="stats stats-vertical w-full shadow h-full">
 						<div className="stat">
-							<div className="stat-title">Courses Completed</div>
-							<div className="stat-value text-accent">{completedCourses}</div>
-							<div className="stat-desc">Total courses taken</div>
+							<div className="stat-title text-sm">Courses Completed</div>
+							<div className="stat-value text-accent text-3xl">{completedCourses}</div>
+							<div className="stat-desc text-xs">Total courses taken</div>
 						</div>
 					</div>
 
-					<div className="stats shadow">
+					<div className="stats stats-vertical w-full shadow h-full">
 						<div className="stat">
-							<div className="stat-title">In Progress</div>
-							<div className="stat-value">{inProgressCourses}</div>
-							<div className="stat-desc">Current semester</div>
+							<div className="stat-title text-sm">In Progress</div>
+							<div className="stat-value text-warning text-3xl">{inProgressCourses}</div>
+							<div className="stat-desc text-xs">Current semester</div>
 						</div>
 					</div>
 				</div>
@@ -291,7 +311,7 @@ export default function DashboardPage() {
 					</div>
 				</div>
 
-				<details className="card bg-base-100 shadow-xl mb-6">
+				<details id="target-simulator-section" className="card bg-base-100 shadow-xl mb-6">
 					<summary className="card-body cursor-pointer">
 						<h2 className="card-title">Advanced Planner: Target Simulator</h2>
 						<p className="text-sm opacity-70">
@@ -482,7 +502,7 @@ export default function DashboardPage() {
 					</div>
 
 					<div className="space-y-4">
-						<div className="card bg-info text-info-content shadow-xl">
+						<div id="smart-advisor-card" className="card bg-info text-info-content shadow-xl">
 							<div className="card-body">
 								<h2 className="card-title gap-2">
 									<Sparkles className="w-5 h-5" />

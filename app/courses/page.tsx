@@ -348,14 +348,14 @@ export default function CoursesPage() {
 														</td>
 														<td>
 															{course.status === "completed" ? (
-																<span className="badge badge-success gap-1">
+																<span className="badge badge-success gap-1 whitespace-nowrap">
 																	{isHistoricalCourse(course.level ?? currentLevel, course.semester) && (
 																		<Lock className="w-3 h-3" />
 																	)}
 																	Completed
 																</span>
 															) : (
-																<span className="badge badge-warning">
+																<span className="badge badge-warning whitespace-nowrap">
 																	In Progress
 																</span>
 															)}
@@ -407,7 +407,7 @@ export default function CoursesPage() {
 															)}
 														</td>
 														<td>
-															<div className="flex gap-2">
+															<div className="flex flex-wrap gap-2">
 																<button
 																	type="button"
 																	onClick={() => openEditModal(course)}

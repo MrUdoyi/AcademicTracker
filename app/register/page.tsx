@@ -119,7 +119,7 @@ export default function RegisterPage() {
 									id="name-input"
 									type="text"
 									className="grow"
-									placeholder="John Doe"
+									placeholder="Samuel Johnson"
 									value={name}
 									onChange={(e) => setName(e.target.value)}
 									required

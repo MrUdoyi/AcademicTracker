@@ -115,6 +115,7 @@ function mapSupabaseUserToAppUser(
 		totalDegreeCredits: DEFAULT_TOTAL_DEGREE_CREDITS,
 		currentLevel: DEFAULT_CURRENT_LEVEL,
 		currentSemester: DEFAULT_CURRENT_SEMESTER,
+		hasSeenOnboarding: false,
 		createdAt: user.created_at || new Date().toISOString(),
 	};
 }
@@ -483,6 +484,36 @@ export async function setUserCurrentAcademicContext(
 			current_level: normalizedLevel,
 			current_semester: normalizedSemester,
 		})
+		.eq("id", userId);
+
+	if (error) {
+		throw new Error(error.message);
+	}
+}
+
+export async function getUserHasSeenOnboarding(userId: string): Promise<boolean> {
+	await ensureProfileForUser(userId);
+
+	const { data, error } = await supabase
+		.from("profiles")
+		.select("has_seen_onboarding")
+		.eq("id", userId)
+		.maybeSingle();
+
+	if (error || !data) return false;
+
+	return data.has_seen_onboarding === true;
+}
+
+export async function setUserHasSeenOnboarding(
+	userId: string,
+	hasSeenOnboarding: boolean,
+): Promise<void> {
+	await ensureProfileForUser(userId);
+
+	const { error } = await supabase
+		.from("profiles")
+		.update({ has_seen_onboarding: hasSeenOnboarding })
 		.eq("id", userId);
 
 	if (error) {

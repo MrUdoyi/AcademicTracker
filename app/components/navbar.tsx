@@ -3,6 +3,7 @@
 import {
 	BarChart3,
 	BookOpen,
+	CircleHelp,
 	GraduationCap,
 	LogOut,
 	Menu,
@@ -17,9 +18,10 @@ import { logout } from "../lib/storage/user";
 
 interface NavbarProps {
 	userName?: string;
+	onHelpClick?: () => void;
 }
 
-export function Navbar({ userName }: NavbarProps) {
+export function Navbar({ userName, onHelpClick }: NavbarProps) {
 	const router = useRouter();
 	const pathname = usePathname();
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -71,6 +73,18 @@ export function Navbar({ userName }: NavbarProps) {
 			</div>
 
 			<div className="navbar-end gap-2">
+				{onHelpClick && (
+					<button
+						type="button"
+						onClick={onHelpClick}
+						className="btn btn-ghost btn-sm gap-2 hidden lg:flex"
+						aria-label="How to use this app"
+					>
+						<CircleHelp className="w-4 h-4" />
+						How to use this app
+					</button>
+				)}
+
 				<NotificationCenter />
 
 				{userName && (
@@ -124,6 +138,20 @@ export function Navbar({ userName }: NavbarProps) {
 								</li>
 							);
 						})}
+						{onHelpClick && (
+							<li>
+								<button
+									type="button"
+									onClick={() => {
+										onHelpClick();
+										closeMobileMenu();
+									}}
+								>
+									<CircleHelp className="w-4 h-4" />
+									How to use this app
+								</button>
+							</li>
+						)}
 						<li className="border-t mt-2 pt-2">
 							<button
 								type="button"

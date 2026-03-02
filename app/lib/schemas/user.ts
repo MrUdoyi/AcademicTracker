@@ -9,6 +9,7 @@ export const UserSchema = v.object({
 	totalDegreeCredits: v.optional(v.number()),
 	currentLevel: v.optional(v.number()),
 	currentSemester: v.optional(v.picklist(["First", "Second", "Summer"])),
+	hasSeenOnboarding: v.optional(v.boolean()),
 	createdAt: v.string(),
 });
 
@@ -41,4 +42,5 @@ export interface UserProfileSettings {
 	totalDegreeCredits: number;
 	currentLevel: number;
 	currentSemester: "First" | "Second" | "Summer";
+	hasSeenOnboarding: boolean;
 }
