@@ -271,6 +271,46 @@ export default function AnalysisPage() {
 	const completedCourses = getTotalCoursesCompleted(filteredCourses);
 	const degreeProgress = calculateDegreeProgress(totalCredits, totalDegreeCredits);
 	const insights = generateStudyTips(filteredCourses, academicBase, gradingScale);
+	const summaryReport = useMemo(() => {
+		const reportLines: string[] = [];
+
+		reportLines.push(
+			`Academic Snapshot: CGPA ${cgpa.toFixed(2)} / 5.00, ${totalCredits}/${totalDegreeCredits} credits completed (${degreeProgress.toFixed(1)}%), ${completedCourses} completed course(s), ${filteredCourses.filter((c) => c.status === "in-progress").length} in-progress course(s).`,
+		);
+
+		if (aiInsights.length > 0) {
+			reportLines.push("\nAI Insights:");
+			aiInsights.forEach((insight, index) => {
+				reportLines.push(`${index + 1}. ${insight}`);
+			});
+		} else if (insights.length > 0) {
+			reportLines.push("\nRecommendations:");
+			insights.slice(0, 5).forEach((insight, index) => {
+				reportLines.push(`${index + 1}. ${insight}`);
+			});
+		} else {
+			reportLines.push(
+				"\nNo personalized insights are available yet. Add or update courses, then generate insights.",
+			);
+		}
+
+		if (cgpa < 3 && cgpa > 0) {
+			reportLines.push(
+				"\nPriority Focus: CGPA is below 3.00. Prioritize improving your highest-credit in-progress courses first.",
+			);
+		}
+
+		return reportLines.join("\n");
+	}, [
+		aiInsights,
+		cgpa,
+		completedCourses,
+		degreeProgress,
+		filteredCourses,
+		insights,
+		totalCredits,
+		totalDegreeCredits,
+	]);
 
 	if (loading) {
 		return (
@@ -693,105 +733,16 @@ export default function AnalysisPage() {
 						<div className="card bg-base-100 shadow-xl">
 							<div className="card-body">
 								<h2 className="card-title text-xl sm:text-2xl">
-									Rule-Based Insights
+									Summary Report
 								</h2>
-								{insights.length > 0 ? (
-									<ul className="space-y-3 mt-4">
-										{insights.map((insight, idx) => (
-											<li key={idx} className="text-sm sm:text-base">
-												• {insight}
-											</li>
-										))}
-									</ul>
-								) : (
-									<div className="text-center py-8">
-										<p className="text-base sm:text-lg">
-											No insights available yet
-										</p>
-										<p className="opacity-70 mt-2 text-sm sm:text-base">
-											Complete some courses to receive recommendations
-										</p>
-									</div>
-								)}
-							</div>
-						</div>
-
-						<div className="card bg-base-100 shadow-xl">
-							<div className="card-body">
-								<h2 className="card-title text-xl sm:text-2xl">
-									Performance Summary
-								</h2>
-								<div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
-									<div>
-										<h3 className="font-bold text-lg mb-3">Strengths</h3>
-										<ul className="space-y-2">
-											{cgpa >= 4.0 && (
-												<li className="text-success">
-													✓ Excellent overall CGPA
-												</li>
-											)}
-											{completedCourses >= 10 && (
-												<li className="text-success">
-													✓ Strong course completion record
-												</li>
-											)}
-											{filteredSemesterPerformance.length >= 2 &&
-												filteredSemesterPerformance[filteredSemesterPerformance.length - 1]
-													.gpa >
-													filteredSemesterPerformance[filteredSemesterPerformance.length - 2]
-														.gpa && (
-													<li className="text-success">
-														✓ Improving trend in recent semester
-													</li>
-												)}
-										</ul>
-									</div>
-									<div>
-										<h3 className="font-bold text-lg mb-3">
-											Areas for Improvement
-										</h3>
-										<ul className="space-y-2">
-											{cgpa < 3.0 && cgpa > 0 && (
-												<li className="text-warning">! CGPA needs attention</li>
-											)}
-											{filteredCourses.filter((c) => c.status === "in-progress")
-												.length > 6 && (
-												<li className="text-warning">
-													! Heavy course load - monitor workload
-												</li>
-											)}
-											{filteredSemesterPerformance.length >= 2 &&
-												filteredSemesterPerformance[filteredSemesterPerformance.length - 1]
-													.gpa <
-													filteredSemesterPerformance[filteredSemesterPerformance.length - 2]
-														.gpa && (
-													<li className="text-warning">
-														! Recent GPA decline - review study habits
-													</li>
-												)}
-										</ul>
-									</div>
+								<p className="text-sm opacity-70">
+									A single consolidated output that combines your latest AI and study guidance.
+								</p>
+								<div className="bg-base-200 rounded-lg p-4 mt-3">
+									<pre className="whitespace-pre-wrap text-sm sm:text-base leading-6 font-sans">
+										{summaryReport}
+									</pre>
 								</div>
-							</div>
-						</div>
-
-						<div className="card bg-base-100 shadow-xl">
-							<div className="card-body">
-								<h2 className="card-title text-xl sm:text-2xl">
-									Recommendations
-								</h2>
-								<ul className="space-y-2 mt-4 list-disc list-inside">
-									<li className="text-sm sm:text-base">
-										Maintain consistent study habits throughout the semester
-									</li>
-									<li className="text-sm sm:text-base">
-										Balance your course load to avoid burnout and maintain
-										quality
-									</li>
-									<li className="text-sm sm:text-base">
-										Seek help early if you&apos;re struggling with any course
-									</li>
-								</ul>
 							</div>
 						</div>
 					</div>

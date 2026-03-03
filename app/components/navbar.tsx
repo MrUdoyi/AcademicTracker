@@ -129,10 +129,15 @@ export function Navbar({ userName, onHelpClick }: NavbarProps) {
 					>
 						<Menu className="w-6 h-6" />
 					</button>
-					<ul className="menu menu-sm dropdown-content mt-3 z-10 p-2 shadow bg-base-100 rounded-box w-52">
+					<ul className="menu dropdown-content mt-3 z-10 p-3 shadow-xl bg-base-100 rounded-box border border-base-300 w-72 max-w-[calc(100vw-1rem)] max-h-[75vh] overflow-y-auto [&_a]:py-3 [&_button]:py-3">
 						{userName && (
-							<li className="menu-title">
-								<span>Welcome, {displayName}</span>
+							<li className="menu-title px-2 pb-2">
+								<span className="flex items-center gap-2 text-base">
+									<span className="bg-base-200 rounded-full p-1.5">
+										<User className="w-4 h-4" />
+									</span>
+									Welcome, {displayName}
+								</span>
 							</li>
 						)}
 						{navLinks.map((link) => {
@@ -164,7 +169,7 @@ export function Navbar({ userName, onHelpClick }: NavbarProps) {
 								</button>
 							</li>
 						)}
-						<li className="border-t mt-2 pt-2">
+						<li className="border-t border-base-300 mt-2 pt-2">
 							<button
 								type="button"
 								onClick={() => {
