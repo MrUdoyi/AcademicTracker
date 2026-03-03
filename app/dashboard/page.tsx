@@ -333,16 +333,16 @@ export default function DashboardPage() {
 
 				<details
 					id="target-simulator-section"
-					className="group card bg-base-100 shadow-xl mb-6 [&_summary::-webkit-details-marker]:hidden"
+					className="group card bg-base-100 shadow-xl mb-6 [&_summary::-webkit-details-marker]:hidden [&>summary]:list-none [&[open]_.chevron]:rotate-180"
 				>
-					<summary className="card-body cursor-pointer flex items-center justify-between gap-3">
+					<summary className="card-body cursor-pointer flex items-center justify-between gap-3 transition-colors hover:bg-base-200 hover:shadow-sm">
 						<div>
 							<h2 className="card-title">Advanced Planner: Target Simulator</h2>
 							<p className="text-sm opacity-70">
 								Set and simulate complex target scenarios.
 							</p>
 						</div>
-						<ChevronDown className="w-5 h-5 opacity-70 transition-transform duration-200 group-hover:scale-110 group-open:rotate-180" />
+						<ChevronDown className="chevron w-6 h-6 text-primary shrink-0 transition-transform duration-200 group-hover:scale-110" />
 					</summary>
 					<div className="card-body pt-0">
 						<TargetSimulator
@@ -355,15 +355,15 @@ export default function DashboardPage() {
 					</div>
 				</details>
 
-				<details className="group card bg-base-100 shadow-xl mb-6 [&_summary::-webkit-details-marker]:hidden">
-					<summary className="card-body cursor-pointer flex items-center justify-between gap-3">
+				<details className="group card bg-base-100 shadow-xl mb-6 [&_summary::-webkit-details-marker]:hidden [&>summary]:list-none [&[open]_.chevron]:rotate-180">
+					<summary className="card-body cursor-pointer flex items-center justify-between gap-3 transition-colors hover:bg-base-200 hover:shadow-sm">
 						<div>
 							<h2 className="card-title">Performance Trends</h2>
 							<p className="text-sm opacity-70">
 								View detailed charts and filters for historical performance.
 							</p>
 						</div>
-						<ChevronDown className="w-5 h-5 opacity-70 transition-transform duration-200 group-hover:scale-110 group-open:rotate-180" />
+						<ChevronDown className="chevron w-6 h-6 text-primary shrink-0 transition-transform duration-200 group-hover:scale-110" />
 					</summary>
 					<div className="card-body gap-4 pt-0">
 
@@ -469,15 +469,15 @@ export default function DashboardPage() {
 					</div>
 				</details>
 
-				<details className="group card bg-base-100 shadow-xl mb-6 [&_summary::-webkit-details-marker]:hidden">
-					<summary className="card-body cursor-pointer flex items-center justify-between gap-3">
+				<details className="group card bg-base-100 shadow-xl mb-6 [&_summary::-webkit-details-marker]:hidden [&>summary]:list-none [&[open]_.chevron]:rotate-180">
+					<summary className="card-body cursor-pointer flex items-center justify-between gap-3 transition-colors hover:bg-base-200 hover:shadow-sm">
 						<div>
 							<h2 className="card-title">In-Progress Course Planner</h2>
 							<p className="text-sm opacity-70">
 								Track course-level targets and required exam outcomes.
 							</p>
 						</div>
-						<ChevronDown className="w-5 h-5 opacity-70 transition-transform duration-200 group-hover:scale-110 group-open:rotate-180" />
+						<ChevronDown className="chevron w-6 h-6 text-primary shrink-0 transition-transform duration-200 group-hover:scale-110" />
 					</summary>
 					<div className="card-body gap-4 pt-0">
 						{inProgressCourseList.length > 0 ? (
