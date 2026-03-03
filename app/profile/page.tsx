@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, Trash2 } from "lucide-react";
+import { AlertCircle, ChevronDown, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { GradingScaleConfig } from "../components/grading-scale-config";
@@ -31,6 +31,25 @@ import {
 	getTotalCoursesCompleted,
 	getTotalCredits,
 } from "../lib/utils/gpa";
+
+function toDisplayFirstName(name?: string, email?: string): string {
+	const normalized = (name ?? "").trim();
+	if (normalized) {
+		const source = normalized.includes("@")
+			? normalized.split("@")[0]
+			: normalized;
+		const [firstToken] = source.split(/[\s._-]+/);
+		if (firstToken) return firstToken;
+	}
+
+	const localPart = (email ?? "").split("@")[0]?.trim();
+	if (localPart) {
+		const [firstToken] = localPart.split(/[\s._-]+/);
+		if (firstToken) return firstToken;
+	}
+
+	return "Student";
+}
 
 export default function ProfilePage() {
 	const router = useRouter();
@@ -181,6 +200,7 @@ export default function ProfilePage() {
 	}
 
 	if (!user) return null;
+	const displayName = toDisplayFirstName(user.name, user.email);
 
 	const cgpa = calculateCGPA(courses, academicBase, gradingScale);
 	const maxScaleWeight = normalizeGradingScale(gradingScale)[0]?.weight ?? 5;
@@ -374,7 +394,7 @@ export default function ProfilePage() {
 
 	return (
 		<div className="min-h-screen bg-base-200">
-			<Navbar userName={user.name} />
+			<Navbar userName={displayName} />
 
 			<div className="container mx-auto p-4 px-4 sm:px-6 lg:px-8 max-w-4xl">
 				<OfflineBanner />
@@ -388,12 +408,12 @@ export default function ProfilePage() {
 								<div className="avatar placeholder">
 									<div className="bg-neutral text-neutral-content rounded-full w-24 flex justify-center items-center">
 										<span className="text-4xl">
-											{user.name.charAt(0).toUpperCase()}
+											{displayName.charAt(0).toUpperCase()}
 										</span>
 									</div>
 								</div>
-								<h2 className="card-title mt-4">{user.name}</h2>
-								<p className="text-sm opacity-70">{user.email}</p>
+								<h2 className="card-title mt-4">{displayName}</h2>
+								<p className="text-sm opacity-70">Profile</p>
 								<div className="divider" />
 								<div className="stats stats-vertical shadow w-full">
 									<div className="stat">
@@ -420,12 +440,15 @@ export default function ProfilePage() {
 					</div>
 
 					<div className="lg:col-span-2 space-y-6">
-						<details className="card bg-base-100 shadow-xl">
-							<summary className="card-body cursor-pointer">
-								<h2 className="card-title">Advanced: Quick Start (Higher Level)</h2>
-								<p className="text-sm opacity-70">
-									Set base CGPA/credits only if you are migrating with prior history.
-								</p>
+						<details className="group card bg-base-100 shadow-xl [&_summary::-webkit-details-marker]:hidden">
+							<summary className="card-body cursor-pointer flex items-center justify-between gap-3">
+								<div>
+									<h2 className="card-title">Advanced: Quick Start (Higher Level)</h2>
+									<p className="text-sm opacity-70">
+										Set base CGPA/credits only if you are migrating with prior history.
+									</p>
+								</div>
+								<ChevronDown className="w-5 h-5 opacity-70 transition-transform duration-200 group-hover:scale-110 group-open:rotate-180" />
 							</summary>
 							<div className="card-body pt-0">
 
@@ -728,12 +751,15 @@ export default function ProfilePage() {
 							</div>
 						</div>
 
-						<details className="card bg-base-100 shadow-xl">
-							<summary className="card-body cursor-pointer">
-								<h2 className="card-title">Advanced: Grading Scale</h2>
-								<p className="text-sm opacity-70">
-									Customize grading thresholds only if your institution differs.
-								</p>
+						<details className="group card bg-base-100 shadow-xl [&_summary::-webkit-details-marker]:hidden">
+							<summary className="card-body cursor-pointer flex items-center justify-between gap-3">
+								<div>
+									<h2 className="card-title">Advanced: Grading Scale</h2>
+									<p className="text-sm opacity-70">
+										Customize grading thresholds only if your institution differs.
+									</p>
+								</div>
+								<ChevronDown className="w-5 h-5 opacity-70 transition-transform duration-200 group-hover:scale-110 group-open:rotate-180" />
 							</summary>
 							<div className="card-body pt-0">
 								<GradingScaleConfig
