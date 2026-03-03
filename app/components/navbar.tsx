@@ -51,7 +51,7 @@ export function Navbar({ userName, onHelpClick }: NavbarProps) {
 				</Link>
 			</div>
 
-			<div className="navbar-center hidden lg:flex">
+			<div className="navbar-center hidden xl:flex">
 				<ul className="menu menu-horizontal px-1 gap-1">
 					{navLinks.map((link) => {
 						const Icon = link.icon;
@@ -77,7 +77,7 @@ export function Navbar({ userName, onHelpClick }: NavbarProps) {
 					<button
 						type="button"
 						onClick={onHelpClick}
-						className="btn btn-ghost btn-sm gap-2 hidden lg:flex"
+						className="btn btn-ghost btn-sm gap-2 hidden xl:flex"
 						aria-label="How to use this app"
 					>
 						<CircleHelp className="w-4 h-4" />
@@ -88,16 +88,16 @@ export function Navbar({ userName, onHelpClick }: NavbarProps) {
 				<NotificationCenter />
 
 				{userName && (
-					<div className="hidden md:flex items-center gap-2 px-3">
+					<div className="hidden xl:flex items-center gap-2 px-2 min-w-0 max-w-44">
 						<span className="text-sm opacity-70">Welcome,</span>
-						<span className="font-semibold">{userName}</span>
+						<span className="font-semibold truncate">{userName}</span>
 					</div>
 				)}
 
 				<button
 					type="button"
 					onClick={() => void handleLogout()}
-					className="btn btn-error btn-sm hidden lg:flex gap-2"
+					className="btn btn-error btn-sm hidden xl:flex gap-2"
 					aria-label="Logout"
 				>
 					<LogOut className="w-4 h-4" />
@@ -105,7 +105,7 @@ export function Navbar({ userName, onHelpClick }: NavbarProps) {
 				</button>
 
 				<div
-					className={`dropdown dropdown-end lg:hidden ${mobileMenuOpen ? "dropdown-open" : ""}`}
+					className={`dropdown dropdown-end xl:hidden ${mobileMenuOpen ? "dropdown-open" : ""}`}
 				>
 					<button
 						type="button"
