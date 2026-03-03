@@ -50,6 +50,25 @@ type PerformanceLevel =
 	| "needs-improvement"
 	| "in-progress";
 
+function toDisplayFirstName(name?: string, email?: string): string {
+	const normalized = (name ?? "").trim();
+	if (normalized) {
+		const source = normalized.includes("@")
+			? normalized.split("@")[0]
+			: normalized;
+		const [firstToken] = source.split(/[\s._-]+/);
+		if (firstToken) return firstToken;
+	}
+
+	const localPart = (email ?? "").split("@")[0]?.trim();
+	if (localPart) {
+		const [firstToken] = localPart.split(/[\s._-]+/);
+		if (firstToken) return firstToken;
+	}
+
+	return "Student";
+}
+
 function getCoursePerformanceLevel(course: Course): Exclude<PerformanceLevel, "all"> {
 	if (course.status === "in-progress" || !course.grade) {
 		return "in-progress";
@@ -78,6 +97,7 @@ export default function DashboardPage() {
 	const [selectedPerformance, setSelectedPerformance] =
 		useState<PerformanceLevel>("all");
 	const [tourRestartToken, setTourRestartToken] = useState(0);
+	const displayName = toDisplayFirstName(user?.name, user?.email);
 
 	useEffect(() => {
 		if (!loading && !user) {
@@ -242,7 +262,7 @@ export default function DashboardPage() {
 				<OfflineBanner />
 
 				<div className="mb-6">
-					<h1 className="text-3xl font-bold">Welcome back, {user.name}</h1>
+					<h1 className="text-3xl font-bold">Welcome back, {displayName}</h1>
 					<p className="opacity-70 mt-1">Academic progress overview</p>
 				</div>
 
