@@ -15,6 +15,19 @@ export const DEFAULT_TOTAL_DEGREE_CREDITS = 120;
 export const DEFAULT_CURRENT_LEVEL = 100;
 export const DEFAULT_CURRENT_SEMESTER: "First" | "Second" | "Summer" = "First";
 
+function getFirstName(name?: string | null, email?: string | null): string {
+	const normalizedName = (name ?? "").trim();
+	if (normalizedName.length > 0) {
+		const [firstToken] = normalizedName.split(/\s+/);
+		if (firstToken) return firstToken;
+	}
+
+	const localPart = (email ?? "").split("@")[0]?.trim();
+	if (localPart && localPart.length > 0) return localPart;
+
+	return "Student";
+}
+
 function parseGradingScale(value: unknown): GradingScale | null {
 	if (!Array.isArray(value)) return null;
 
@@ -77,6 +90,10 @@ async function ensureProfileForUser(userId: string): Promise<void> {
 
 	const { data: authData } = await supabase.auth.getUser();
 	if (!authData.user || authData.user.id !== userId) return;
+	const metadataName =
+		typeof authData.user.user_metadata?.name === "string"
+			? authData.user.user_metadata.name
+			: null;
 
 	await upsertProfileSafe(
 		{
@@ -84,7 +101,7 @@ async function ensureProfileForUser(userId: string): Promise<void> {
 			email: authData.user.email,
 			created_at: authData.user.created_at,
 		},
-		authData.user.email?.split("@")[0] || "Student",
+		metadataName || getFirstName(undefined, authData.user.email),
 	);
 }
 
@@ -110,7 +127,7 @@ function mapSupabaseUserToAppUser(
 	return {
 		id: user.id,
 		email: user.email || "",
-		name: profileName || user.email?.split("@")[0] || "Student",
+		name: getFirstName(profileName, user.email),
 		password: "",
 		totalDegreeCredits: DEFAULT_TOTAL_DEGREE_CREDITS,
 		currentLevel: DEFAULT_CURRENT_LEVEL,
@@ -130,6 +147,10 @@ export async function createUser(data: RegisterInput): Promise<User> {
 					id: string;
 					email?: string | null;
 					created_at?: string;
+					user_metadata?: {
+						name?: string;
+						first_name?: string;
+					};
 				} | null;
 		  }
 		| undefined;
@@ -139,6 +160,12 @@ export async function createUser(data: RegisterInput): Promise<User> {
 		const result = await supabase.auth.signUp({
 			email: data.email,
 			password: data.password,
+			options: {
+				data: {
+					name: data.name,
+					first_name: getFirstName(data.name),
+				},
+			},
 		});
 
 		authData = result.data as typeof authData;
@@ -171,6 +198,10 @@ export async function authenticateUser(data: LoginInput): Promise<User> {
 					id: string;
 					email?: string | null;
 					created_at?: string;
+					user_metadata?: {
+						name?: string;
+						first_name?: string;
+					};
 				} | null;
 		  }
 		| undefined;
@@ -196,7 +227,9 @@ export async function authenticateUser(data: LoginInput): Promise<User> {
 
 	await upsertProfileSafe(
 		authData.user,
-		authData.user.email?.split("@")[0] || "Student",
+		typeof authData.user.user_metadata?.name === "string"
+			? authData.user.user_metadata.name
+			: getFirstName(undefined, authData.user.email),
 	);
 
 	const { data: profileData } = await supabase
