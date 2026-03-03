@@ -18,12 +18,18 @@ export const DEFAULT_CURRENT_SEMESTER: "First" | "Second" | "Summer" = "First";
 function getFirstName(name?: string | null, email?: string | null): string {
 	const normalizedName = (name ?? "").trim();
 	if (normalizedName.length > 0) {
-		const [firstToken] = normalizedName.split(/\s+/);
+		const source = normalizedName.includes("@")
+			? normalizedName.split("@")[0]
+			: normalizedName;
+		const [firstToken] = source.split(/[\s._-]+/);
 		if (firstToken) return firstToken;
 	}
 
 	const localPart = (email ?? "").split("@")[0]?.trim();
-	if (localPart && localPart.length > 0) return localPart;
+	if (localPart && localPart.length > 0) {
+		const [firstToken] = localPart.split(/[\s._-]+/);
+		if (firstToken) return firstToken;
+	}
 
 	return "Student";
 }
