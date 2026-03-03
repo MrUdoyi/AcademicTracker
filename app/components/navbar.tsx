@@ -21,10 +21,22 @@ interface NavbarProps {
 	onHelpClick?: () => void;
 }
 
+function toDisplayFirstName(name?: string): string {
+	const normalized = (name ?? "").trim();
+	if (!normalized) return "Student";
+
+	const source = normalized.includes("@")
+		? normalized.split("@")[0]
+		: normalized;
+	const [firstToken] = source.split(/[\s._-]+/);
+	return firstToken || "Student";
+}
+
 export function Navbar({ userName, onHelpClick }: NavbarProps) {
 	const router = useRouter();
 	const pathname = usePathname();
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+	const displayName = toDisplayFirstName(userName);
 
 	const handleLogout = async () => {
 		await logout();
@@ -90,7 +102,7 @@ export function Navbar({ userName, onHelpClick }: NavbarProps) {
 				{userName && (
 					<div className="hidden xl:flex items-center gap-2 px-2 min-w-0 max-w-44">
 						<span className="text-sm opacity-70">Welcome,</span>
-						<span className="font-semibold truncate">{userName}</span>
+						<span className="font-semibold truncate">{displayName}</span>
 					</div>
 				)}
 
@@ -120,7 +132,7 @@ export function Navbar({ userName, onHelpClick }: NavbarProps) {
 					<ul className="menu menu-sm dropdown-content mt-3 z-10 p-2 shadow bg-base-100 rounded-box w-52">
 						{userName && (
 							<li className="menu-title">
-								<span>Welcome, {userName}</span>
+								<span>Welcome, {displayName}</span>
 							</li>
 						)}
 						{navLinks.map((link) => {
