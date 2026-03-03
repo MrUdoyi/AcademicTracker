@@ -270,7 +270,7 @@ export function setCurrentUser(_user: User): void {
 export async function logout(): Promise<void> {
 	const { error } = await supabase.auth.signOut();
 	if (error) {
-		throw new Error(error.message);
+		throw normalizeAuthError(new Error(error.message));
 	}
 }
 
@@ -307,7 +307,7 @@ export async function setUserTargetGpa(
 		.eq("id", userId);
 
 	if (error) {
-		throw new Error(error.message);
+		throw normalizeAuthError(new Error(error.message));
 	}
 }
 
@@ -365,7 +365,7 @@ export async function setUserAcademicBase(
 		.eq("id", userId);
 
 	if (error) {
-		throw new Error(error.message);
+		throw normalizeAuthError(new Error(error.message));
 	}
 }
 
@@ -401,7 +401,7 @@ export async function setUserGradingScale(
 		.eq("id", userId);
 
 	if (error) {
-		throw new Error(error.message);
+		throw normalizeAuthError(new Error(error.message));
 	}
 }
 
@@ -449,7 +449,7 @@ export async function setUserTotalDegreeCredits(
 		.eq("id", userId);
 
 	if (error) {
-		throw new Error(error.message);
+		throw normalizeAuthError(new Error(error.message));
 	}
 }
 
@@ -520,7 +520,7 @@ export async function setUserCurrentAcademicContext(
 		.eq("id", userId);
 
 	if (error) {
-		throw new Error(error.message);
+		throw normalizeAuthError(new Error(error.message));
 	}
 }
 
@@ -550,7 +550,7 @@ export async function setUserHasSeenOnboarding(
 		.eq("id", userId);
 
 	if (error) {
-		throw new Error(error.message);
+		throw normalizeAuthError(new Error(error.message));
 	}
 }
 

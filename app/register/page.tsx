@@ -76,7 +76,17 @@ export default function RegisterPage() {
 					setError(err.issues[0].message);
 				}
 			} else if (err instanceof Error) {
-				setError(err.message);
+				const normalizedMessage = err.message.toLowerCase();
+				if (
+					normalizedMessage.includes("failed to fetch") ||
+					normalizedMessage.includes("networkerror")
+				) {
+					setError(
+						"Cannot connect right now. Please check your internet connection and try again.",
+					);
+				} else {
+					setError(err.message);
+				}
 			} else {
 				setError("Registration failed. Please try again.");
 			}
