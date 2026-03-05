@@ -480,54 +480,61 @@ export default function ProfilePage() {
 									</div>
 								)}
 
-								<div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
-									<div>
-										<label htmlFor="base-cgpa-input" className="label">
-											<span className="label-text font-medium">Base CGPA</span>
-										</label>
-										<input
-											id="base-cgpa-input"
-											type="number"
-											className="input input-bordered w-full"
-											min={0}
-											max={maxScaleWeight}
-											step={0.01}
-											placeholder="e.g. 3.85"
-											value={baseCgpaInput}
-											onChange={(event) => setBaseCgpaInput(event.target.value)}
-										/>
-										<p className="text-xs opacity-70 mt-1">
-											Scale maximum: {maxScaleWeight.toFixed(1)}
-										</p>
+								<div className="space-y-2">
+									<div className="flex flex-col sm:flex-row sm:items-end gap-4 w-full">
+										<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1 min-w-0">
+											<div className="min-w-0">
+												<label htmlFor="base-cgpa-input" className="label">
+													<span className="label-text font-medium">Base CGPA</span>
+												</label>
+												<input
+													id="base-cgpa-input"
+													type="number"
+													className="input input-bordered w-full"
+													min={0}
+													max={maxScaleWeight}
+													step={0.01}
+													placeholder="e.g. 3.85"
+													value={baseCgpaInput}
+													onChange={(event) => setBaseCgpaInput(event.target.value)}
+												/>
+											</div>
+
+											<div className="min-w-0">
+												<label htmlFor="base-credits-input" className="label">
+													<span className="label-text font-medium">Base Total Credits</span>
+												</label>
+												<input
+													id="base-credits-input"
+													type="number"
+													className="input input-bordered w-full"
+													min={0}
+													step={1}
+													placeholder="e.g. 84"
+													value={baseCreditsInput}
+													onChange={(event) => setBaseCreditsInput(event.target.value)}
+												/>
+											</div>
+										</div>
+
+										<button
+											type="button"
+											className="btn btn-primary w-full sm:w-auto sm:ml-auto shrink-0"
+											onClick={() => void handleSaveAcademicBase()}
+											disabled={isSavingBase}
+										>
+											{isSavingBase ? "Saving..." : "Save Base"}
+										</button>
 									</div>
 
-									<div>
-										<label htmlFor="base-credits-input" className="label">
-											<span className="label-text font-medium">Base Total Credits</span>
-										</label>
-										<input
-											id="base-credits-input"
-											type="number"
-											className="input input-bordered w-full"
-											min={0}
-											step={1}
-											placeholder="e.g. 84"
-											value={baseCreditsInput}
-											onChange={(event) => setBaseCreditsInput(event.target.value)}
-										/>
-										<p className="text-xs opacity-0 mt-1 select-none" aria-hidden="true">
+									<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+										<p className="text-xs opacity-70">
+											Scale maximum: {maxScaleWeight.toFixed(1)}
+										</p>
+										<p className="text-xs opacity-0 select-none" aria-hidden="true">
 											Placeholder
 										</p>
 									</div>
-
-									<button
-										type="button"
-										className="btn btn-primary"
-										onClick={() => void handleSaveAcademicBase()}
-										disabled={isSavingBase}
-									>
-										{isSavingBase ? "Saving..." : "Save Base"}
-									</button>
 								</div>
 							</div>
 						</details>
@@ -549,37 +556,37 @@ export default function ProfilePage() {
 									</div>
 								)}
 
-								<div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
-									<div className="sm:col-span-2">
-										<label htmlFor="target-gpa-input" className="label">
-											<span className="label-text font-medium">Target GPA</span>
-										</label>
-										<input
-											id="target-gpa-input"
-											type="number"
-											className="input input-bordered w-full"
-											min={0}
-											max={maxScaleWeight}
-											step={0.01}
-											placeholder="e.g. 4.20"
-											value={targetGpaInput}
-											onChange={(event) => setTargetGpaInput(event.target.value)}
-										/>
-										<p className="text-xs opacity-70 mt-1">
-											Scale maximum: {maxScaleWeight.toFixed(1)}
-										</p>
-										{targetGoalTooLow && (
-											<p className="text-sm text-red-500 mt-1">{targetTooLowErrorMessage}</p>
-										)}
+								<div className="space-y-2">
+									<div className="flex flex-col sm:flex-row sm:items-end gap-4 w-full">
+										<div className="flex-1 min-w-0">
+											<label htmlFor="target-gpa-input" className="label">
+												<span className="label-text font-medium">Target GPA</span>
+											</label>
+											<input
+												id="target-gpa-input"
+												type="number"
+												className="input input-bordered w-full"
+												min={0}
+												max={maxScaleWeight}
+												step={0.01}
+												placeholder="e.g. 4.20"
+												value={targetGpaInput}
+												onChange={(event) => setTargetGpaInput(event.target.value)}
+											/>
+										</div>
+										<button
+											type="button"
+											className="btn btn-primary w-full sm:w-auto sm:ml-auto shrink-0"
+											onClick={() => void handleSaveTarget()}
+											disabled={isSavingGoal || targetGoalTooLow}
+										>
+											{isSavingGoal ? "Saving..." : "Save Target"}
+										</button>
 									</div>
-									<button
-										type="button"
-										className="btn btn-primary"
-										onClick={() => void handleSaveTarget()}
-										disabled={isSavingGoal || targetGoalTooLow}
-									>
-										{isSavingGoal ? "Saving..." : "Save Target"}
-									</button>
+									<p className="text-xs opacity-70">Scale maximum: {maxScaleWeight.toFixed(1)}</p>
+									{targetGoalTooLow && (
+										<p className="text-sm text-red-500">{targetTooLowErrorMessage}</p>
+									)}
 								</div>
 
 								{targetGpa !== null ? (
