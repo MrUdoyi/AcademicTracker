@@ -48,6 +48,41 @@ type PerformanceLevel =
 	| "needs-improvement"
 	| "in-progress";
 
+type SummaryTone = "neutral" | "success" | "error";
+
+type SummaryItem = {
+	text: string;
+	tone: SummaryTone;
+};
+
+function getSummaryToneClass(tone: SummaryTone): string {
+	if (tone === "success") return "text-success";
+	if (tone === "error") return "text-error";
+	return "text-base-content";
+}
+
+function classifyInsightTone(insight: string): SummaryTone {
+	const normalized = insight.toLowerCase();
+
+	if (
+		/(risk|below|declin|drop|struggl|urgent|weak|fail|low|needs improvement|priority)/.test(
+			normalized,
+		)
+	) {
+		return "error";
+	}
+
+	if (
+		/(excellent|strong|great|improv|on track|maintain|consistent|good|well done|progress)/.test(
+			normalized,
+		)
+	) {
+		return "success";
+	}
+
+	return "neutral";
+}
+
 function formatAiSyncDetail(detail: string): string {
 	if (detail.includes("Gemini API key is not configured")) {
 		return "AI temporarily unavailable";
@@ -118,6 +153,10 @@ export default function AnalysisPage() {
 	const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 	const [hasAttemptedAiThisSession, setHasAttemptedAiThisSession] =
 		useState(false);
+	const [pendingSummaryReveal, setPendingSummaryReveal] = useState(false);
+	const [visibleSummaryItems, setVisibleSummaryItems] = useState(
+		Number.MAX_SAFE_INTEGER,
+	);
 	const [academicBase, setAcademicBase] = useState<AcademicBaseValues | null>(null);
 	const [gradingScale, setGradingScale] = useState<GradingScale | null>(null);
 	const [totalDegreeCredits, setTotalDegreeCredits] = useState<number>(
@@ -196,6 +235,8 @@ export default function AnalysisPage() {
 		if (!user) return;
 		setAiSuccess(null);
 		setHasAttemptedAiThisSession(true);
+		setPendingSummaryReveal(true);
+		setVisibleSummaryItems(0);
 
 		if (!isOnline) {
 			enqueuePendingAction(
@@ -206,6 +247,8 @@ export default function AnalysisPage() {
 			setAiSuccess(
 				"You're offline. Insight refresh has been queued and will run automatically when you're back online.",
 			);
+			setPendingSummaryReveal(false);
+			setVisibleSummaryItems(Number.MAX_SAFE_INTEGER);
 			return;
 		}
 
@@ -271,36 +314,49 @@ export default function AnalysisPage() {
 	const completedCourses = getTotalCoursesCompleted(filteredCourses);
 	const degreeProgress = calculateDegreeProgress(totalCredits, totalDegreeCredits);
 	const insights = generateStudyTips(filteredCourses, academicBase, gradingScale);
-	const summaryReport = useMemo(() => {
-		const reportLines: string[] = [];
+	const summaryReportItems = useMemo<SummaryItem[]>(() => {
+		const reportItems: SummaryItem[] = [];
+		const inProgressCount = filteredCourses.filter((c) => c.status === "in-progress").length;
 
-		reportLines.push(
-			`Academic Snapshot: CGPA ${cgpa.toFixed(2)} / 5.00, ${totalCredits}/${totalDegreeCredits} credits completed (${degreeProgress.toFixed(1)}%), ${completedCourses} completed course(s), ${filteredCourses.filter((c) => c.status === "in-progress").length} in-progress course(s).`,
-		);
+		reportItems.push({
+			text: `Academic Snapshot: CGPA ${cgpa.toFixed(2)} / 5.00, ${totalCredits}/${totalDegreeCredits} credits completed (${degreeProgress.toFixed(1)}%), ${completedCourses} completed course(s), ${inProgressCount} in-progress course(s).`,
+			tone: cgpa > 0 && cgpa < 3 ? "error" : cgpa >= 4 ? "success" : "neutral",
+		});
 
 		if (aiInsights.length > 0) {
-			reportLines.push("\nAI Insights:");
-			aiInsights.forEach((insight, index) => {
-				reportLines.push(`${index + 1}. ${insight}`);
+			aiInsights.forEach((insight) => {
+				reportItems.push({
+					text: insight,
+					tone: classifyInsightTone(insight),
+				});
 			});
 		} else if (insights.length > 0) {
-			reportLines.push("\nRecommendations:");
-			insights.slice(0, 5).forEach((insight, index) => {
-				reportLines.push(`${index + 1}. ${insight}`);
+			insights.slice(0, 5).forEach((insight) => {
+				reportItems.push({
+					text: insight,
+					tone: classifyInsightTone(insight),
+				});
 			});
 		} else {
-			reportLines.push(
-				"\nNo personalized insights are available yet. Add or update courses, then generate insights.",
-			);
+			reportItems.push({
+				text: "No personalized insights are available yet. Add or update courses, then generate insights.",
+				tone: "neutral",
+			});
 		}
 
 		if (cgpa < 3 && cgpa > 0) {
-			reportLines.push(
-				"\nPriority Focus: CGPA is below 3.00. Prioritize improving your highest-credit in-progress courses first.",
-			);
+			reportItems.push({
+				text: "Priority Focus: CGPA is below 3.00. Prioritize improving your highest-credit in-progress courses first.",
+				tone: "error",
+			});
+		} else if (cgpa >= 4) {
+			reportItems.push({
+				text: "Momentum: Strong performance detected. Keep this pace to protect your CGPA advantage.",
+				tone: "success",
+			});
 		}
 
-		return reportLines.join("\n");
+		return reportItems;
 	}, [
 		aiInsights,
 		cgpa,
@@ -311,6 +367,36 @@ export default function AnalysisPage() {
 		totalCredits,
 		totalDegreeCredits,
 	]);
+
+	useEffect(() => {
+		if (!pendingSummaryReveal || loadingAi) return;
+		if (summaryReportItems.length === 0) {
+			setPendingSummaryReveal(false);
+			setVisibleSummaryItems(Number.MAX_SAFE_INTEGER);
+			return;
+		}
+
+		let currentCount = 0;
+		const timer = window.setInterval(() => {
+			currentCount += 1;
+			setVisibleSummaryItems(currentCount);
+
+			if (currentCount >= summaryReportItems.length) {
+				window.clearInterval(timer);
+				setPendingSummaryReveal(false);
+				setVisibleSummaryItems(Number.MAX_SAFE_INTEGER);
+			}
+		}, 140);
+
+		return () => {
+			window.clearInterval(timer);
+		};
+	}, [pendingSummaryReveal, loadingAi, summaryReportItems.length]);
+
+	const displayedSummaryItems =
+		pendingSummaryReveal && !loadingAi
+			? summaryReportItems.slice(0, visibleSummaryItems)
+			: summaryReportItems;
 
 	if (loading) {
 		return (
@@ -708,15 +794,32 @@ export default function AnalysisPage() {
 								)}
 
 								{aiInsights.length > 0 ? (
-									<div className="space-y-3 mt-4">
-										{aiInsights.map((insight, idx) => (
-											<div
-												key={idx}
-												className="bg-base-100 text-base-content p-4 rounded-lg"
-											>
-												<p className="text-sm sm:text-base">{insight}</p>
-											</div>
-										))}
+									<div className="bg-base-100 text-base-content rounded-lg p-4 mt-4 space-y-2">
+										<p className="text-xs sm:text-sm opacity-70">
+											Quick read: green highlights strengths, red highlights areas needing attention.
+										</p>
+										<ul className="space-y-2">
+											{aiInsights.map((insight, idx) => {
+												const tone = classifyInsightTone(insight);
+
+												return (
+													<li
+														key={idx}
+														className="flex items-start gap-2"
+													>
+														<span
+															className={`mt-1 text-base leading-none ${getSummaryToneClass(tone)}`}
+															aria-hidden="true"
+														>
+															•
+														</span>
+														<p className={`text-sm sm:text-base leading-6 ${getSummaryToneClass(tone)}`}>
+															{insight}
+														</p>
+													</li>
+												);
+											})}
+										</ul>
 									</div>
 								) : !loadingAi && !aiError ? (
 									<div className="text-center py-8">
@@ -736,12 +839,28 @@ export default function AnalysisPage() {
 									Summary Report
 								</h2>
 								<p className="text-sm opacity-70">
-									A single consolidated output that combines your latest AI and study guidance.
+									A consolidated bullet summary with highlighted positive and risk signals.
 								</p>
 								<div className="bg-base-200 rounded-lg p-4 mt-3">
-									<pre className="whitespace-pre-wrap text-sm sm:text-base leading-6 font-sans">
-										{summaryReport}
-									</pre>
+									{loadingAi && pendingSummaryReveal ? (
+										<div className="space-y-3" aria-live="polite">
+											<p className="text-sm opacity-70">Generating summary...</p>
+											<div className="h-4 bg-base-300 rounded animate-pulse w-full" />
+											<div className="h-4 bg-base-300 rounded animate-pulse w-11/12" />
+											<div className="h-4 bg-base-300 rounded animate-pulse w-10/12" />
+										</div>
+									) : (
+										<ul className="list-disc pl-5 space-y-2">
+											{displayedSummaryItems.map((item, index) => (
+												<li
+													key={`${index}-${item.text.slice(0, 24)}`}
+													className={`text-sm sm:text-base leading-6 ${getSummaryToneClass(item.tone)}`}
+												>
+													{item.text}
+												</li>
+											))}
+										</ul>
+									)}
 								</div>
 							</div>
 						</div>

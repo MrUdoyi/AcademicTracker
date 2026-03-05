@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, FileText, Plus, Sparkles, TrendingUp } from "lucide-react";
+import { ChevronDown, FileText, Plus, Sparkles, TrendingUp, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -97,6 +97,7 @@ export default function DashboardPage() {
 	const [selectedPerformance, setSelectedPerformance] =
 		useState<PerformanceLevel>("all");
 	const [tourRestartToken, setTourRestartToken] = useState(0);
+	const [isQuickStartVisible, setIsQuickStartVisible] = useState(true);
 	const displayName = toDisplayFirstName(user?.name, user?.email);
 
 	useEffect(() => {
@@ -104,6 +105,17 @@ export default function DashboardPage() {
 			router.push("/");
 		}
 	}, [user, loading, router]);
+
+	useEffect(() => {
+		try {
+			const hideQuickStart = localStorage.getItem("hideQuickStart") === "true";
+			if (hideQuickStart) {
+				setIsQuickStartVisible(false);
+			}
+		} catch {
+			setIsQuickStartVisible(true);
+		}
+	}, []);
 
 	useEffect(() => {
 		let isMounted = true;
@@ -145,6 +157,9 @@ export default function DashboardPage() {
 
 	const cgpa = calculateCGPA(courses, academicBase, gradingScale);
 	const totalCredits = getTotalCredits(courses, academicBase?.baseTotalCredits || 0);
+	const hasSavedBaseCgpa =
+		academicBase?.baseCgpa !== undefined && academicBase?.baseCgpa !== null;
+	const shouldShowQuickStart = isQuickStartVisible && !hasSavedBaseCgpa;
 	const completedCourses = getTotalCoursesCompleted(courses);
 	const inProgressCourses = getCoursesInProgress(courses);
 	const inProgressCourseList = useMemo(
@@ -250,6 +265,13 @@ export default function DashboardPage() {
 		);
 	};
 
+	const handleDismissQuickStart = () => {
+		setIsQuickStartVisible(false);
+		try {
+			localStorage.setItem("hideQuickStart", "true");
+		} catch {}
+	};
+
 	return (
 		<div className="min-h-screen bg-base-200">
 			<FeatureTour userId={user.id} restartToken={tourRestartToken} />
@@ -266,19 +288,29 @@ export default function DashboardPage() {
 					<p className="opacity-70 mt-1">Academic progress overview</p>
 				</div>
 
-				<div id="quick-start-card" className="card bg-base-100 shadow-xl mb-6">
-					<div className="card-body">
-						<h2 className="card-title">Quick Start</h2>
-						<p className="text-sm opacity-70">
-							Enter your current CGPA in Profile once, then continue tracking only your new courses.
-						</p>
-						<div className="card-actions justify-start">
-							<Link href="/profile" className="btn btn-sm btn-primary">
-								Open Profile Setup
-							</Link>
+				{shouldShowQuickStart && (
+					<div id="quick-start-card" className="card bg-base-100 shadow-xl mb-6">
+						<div className="card-body relative pr-14">
+							<button
+								type="button"
+								onClick={handleDismissQuickStart}
+								className="btn btn-ghost btn-sm btn-circle absolute top-3 right-3"
+								aria-label="Dismiss quick start"
+							>
+								<X className="w-4 h-4" />
+							</button>
+							<h2 className="card-title">Quick Start</h2>
+							<p className="text-sm opacity-70">
+								Enter your current CGPA in Profile once, then continue tracking only your new courses.
+							</p>
+							<div className="card-actions justify-start">
+								<Link href="/profile" className="btn btn-sm btn-primary">
+									Open Profile Setup
+								</Link>
+							</div>
 						</div>
 					</div>
-				</div>
+				)}
 
 				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
 					<div className="stats stats-vertical w-full shadow h-full">
@@ -335,14 +367,14 @@ export default function DashboardPage() {
 					id="target-simulator-section"
 					className="group card bg-base-100 shadow-xl mb-6 [&_summary::-webkit-details-marker]:hidden [&>summary]:list-none [&[open]_.chevron]:rotate-180"
 				>
-					<summary className="card-body cursor-pointer flex items-center justify-between gap-3 transition-colors hover:bg-base-200 hover:shadow-sm">
-						<div>
-							<h2 className="card-title">Advanced Planner: Target Simulator</h2>
+					<summary className="card-body cursor-pointer flex items-center justify-center gap-3 transition-colors hover:bg-base-200 hover:shadow-sm relative">
+						<div className="text-center">
+							<h2 className="card-title justify-center">Advanced Planner: Target Simulator</h2>
 							<p className="text-sm opacity-70">
 								Set and simulate complex target scenarios.
 							</p>
 						</div>
-						<ChevronDown className="chevron w-6 h-6 text-primary shrink-0 transition-transform duration-200 group-hover:scale-110" />
+						<ChevronDown className="chevron w-6 h-6 text-primary shrink-0 transition-transform duration-200 group-hover:scale-110 absolute right-6" />
 					</summary>
 					<div className="card-body pt-0">
 						<TargetSimulator
@@ -356,14 +388,14 @@ export default function DashboardPage() {
 				</details>
 
 				<details className="group card bg-base-100 shadow-xl mb-6 [&_summary::-webkit-details-marker]:hidden [&>summary]:list-none [&[open]_.chevron]:rotate-180">
-					<summary className="card-body cursor-pointer flex items-center justify-between gap-3 transition-colors hover:bg-base-200 hover:shadow-sm">
-						<div>
-							<h2 className="card-title">Performance Trends</h2>
+					<summary className="card-body cursor-pointer flex items-center justify-center gap-3 transition-colors hover:bg-base-200 hover:shadow-sm relative">
+						<div className="text-center">
+							<h2 className="card-title justify-center">Performance Trends</h2>
 							<p className="text-sm opacity-70">
 								View detailed charts and filters for historical performance.
 							</p>
 						</div>
-						<ChevronDown className="chevron w-6 h-6 text-primary shrink-0 transition-transform duration-200 group-hover:scale-110" />
+						<ChevronDown className="chevron w-6 h-6 text-primary shrink-0 transition-transform duration-200 group-hover:scale-110 absolute right-6" />
 					</summary>
 					<div className="card-body gap-4 pt-0">
 
@@ -470,14 +502,14 @@ export default function DashboardPage() {
 				</details>
 
 				<details className="group card bg-base-100 shadow-xl mb-6 [&_summary::-webkit-details-marker]:hidden [&>summary]:list-none [&[open]_.chevron]:rotate-180">
-					<summary className="card-body cursor-pointer flex items-center justify-between gap-3 transition-colors hover:bg-base-200 hover:shadow-sm">
-						<div>
-							<h2 className="card-title">In-Progress Course Planner</h2>
+					<summary className="card-body cursor-pointer flex items-center justify-center gap-3 transition-colors hover:bg-base-200 hover:shadow-sm relative">
+						<div className="text-center">
+							<h2 className="card-title justify-center">In-Progress Course Planner</h2>
 							<p className="text-sm opacity-70">
 								Track course-level targets and required exam outcomes.
 							</p>
 						</div>
-						<ChevronDown className="chevron w-6 h-6 text-primary shrink-0 transition-transform duration-200 group-hover:scale-110" />
+						<ChevronDown className="chevron w-6 h-6 text-primary shrink-0 transition-transform duration-200 group-hover:scale-110 absolute right-6" />
 					</summary>
 					<div className="card-body gap-4 pt-0">
 						{inProgressCourseList.length > 0 ? (

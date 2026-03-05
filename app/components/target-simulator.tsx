@@ -233,7 +233,7 @@ export function TargetSimulator({
 	}, [projectedSemesterGpa, pastCgpa, pastCredits, currentSemesterCredits]);
 
 	const targetMustExceedCurrentCgpa =
-		parsedTarget !== null && parsedTarget <= pastCgpa;
+		parsedTarget !== null && parsedTarget < pastCgpa;
 
 	const handleSaveTarget = async () => {
 		setTargetError(null);
@@ -261,9 +261,9 @@ export function TargetSimulator({
 			return;
 		}
 
-		if (parsedTarget <= pastCgpa) {
+		if (parsedTarget < pastCgpa) {
 			setTargetError(
-				`Your target CGPA must be higher than your current CGPA of ${pastCgpa.toFixed(2)}.`,
+				`Your target CGPA cannot be lower than your current CGPA of ${pastCgpa.toFixed(2)}.`,
 			);
 			return;
 		}
@@ -340,6 +340,11 @@ export function TargetSimulator({
 							value={targetInput}
 							onChange={(event) => setTargetInput(event.target.value)}
 						/>
+						{targetMustExceedCurrentCgpa && (
+							<p className="text-sm text-red-500 mt-1">
+								Your target CGPA cannot be lower than your current CGPA of {pastCgpa.toFixed(2)}.
+							</p>
+						)}
 					</div>
 					<button
 						type="button"
@@ -350,12 +355,6 @@ export function TargetSimulator({
 						{savingTarget ? "Saving..." : "Save Target"}
 					</button>
 				</div>
-
-				{targetMustExceedCurrentCgpa && (
-					<p className="text-sm text-error">
-						Your target CGPA must be higher than your current CGPA of {pastCgpa.toFixed(2)}.
-					</p>
-				)}
 
 				{savedTarget !== null && (
 					<p className="text-xs opacity-70">Saved target: {savedTarget.toFixed(2)}</p>

@@ -207,6 +207,16 @@ export default function ProfilePage() {
 	const totalCredits = getTotalCredits(courses, academicBase?.baseTotalCredits || 0);
 	const completedCourses = getTotalCoursesCompleted(courses);
 	const goalProgress = targetGpa ? Math.min((cgpa / targetGpa) * 100, 100) : 0;
+	const parsedTargetGpaInput = (() => {
+		const trimmed = targetGpaInput.trim();
+		if (!trimmed) return null;
+		const numeric = Number(trimmed);
+		if (!Number.isFinite(numeric)) return null;
+		return numeric;
+	})();
+	const targetTooLowErrorMessage =
+		`Your target CGPA cannot be lower than your current CGPA of ${cgpa.toFixed(2)}.`;
+	const targetGoalTooLow = parsedTargetGpaInput !== null && parsedTargetGpaInput < cgpa;
 
 	const handleSaveTotalDegreeCredits = async () => {
 		if (!user) return;
@@ -376,6 +386,11 @@ export default function ProfilePage() {
 			return;
 		}
 
+		if (parsed < cgpa) {
+			setGoalError(targetTooLowErrorMessage);
+			return;
+		}
+
 		setIsSavingGoal(true);
 		try {
 			const normalized = Number(parsed.toFixed(2));
@@ -500,6 +515,9 @@ export default function ProfilePage() {
 											value={baseCreditsInput}
 											onChange={(event) => setBaseCreditsInput(event.target.value)}
 										/>
+										<p className="text-xs opacity-0 mt-1 select-none" aria-hidden="true">
+											Placeholder
+										</p>
 									</div>
 
 									<button
@@ -518,7 +536,7 @@ export default function ProfilePage() {
 							<div className="card-body">
 								<h2 className="card-title">Academic Goal</h2>
 
-								{goalError && (
+								{goalError && goalError !== targetTooLowErrorMessage && (
 									<div role="alert" className="alert alert-error">
 										<AlertCircle className="h-6 w-6 shrink-0" />
 										<span>{goalError}</span>
@@ -550,12 +568,15 @@ export default function ProfilePage() {
 										<p className="text-xs opacity-70 mt-1">
 											Scale maximum: {maxScaleWeight.toFixed(1)}
 										</p>
+										{targetGoalTooLow && (
+											<p className="text-sm text-red-500 mt-1">{targetTooLowErrorMessage}</p>
+										)}
 									</div>
 									<button
 										type="button"
 										className="btn btn-primary"
 										onClick={() => void handleSaveTarget()}
-										disabled={isSavingGoal}
+										disabled={isSavingGoal || targetGoalTooLow}
 									>
 										{isSavingGoal ? "Saving..." : "Save Target"}
 									</button>

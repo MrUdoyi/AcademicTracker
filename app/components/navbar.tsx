@@ -59,7 +59,7 @@ export function Navbar({ userName, onHelpClick }: NavbarProps) {
 			<div className="navbar-start">
 				<Link href="/dashboard" className="btn btn-ghost text-xl gap-2">
 					<GraduationCap className="w-6 h-6" />
-					<span>APT</span>
+					<span>PAPT</span>
 				</Link>
 			</div>
 

@@ -72,8 +72,8 @@ export default function LoginPage() {
 						<div className="flex justify-center mb-3">
 							<GraduationCap className="w-16 h-16 text-primary" />
 						</div>
-						<h1 className="text-2xl sm:text-3xl font-bold">
-							Academic Progress Tracker
+						<h1 className="text-2xl sm:text-3xl font-bold leading-tight">
+							Personalized Academic Progress Tracker
 						</h1>
 						<p className="text-sm sm:text-base opacity-70 mt-2">
 							Track your CGPA and academic journey
