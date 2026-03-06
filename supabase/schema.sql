@@ -7,16 +7,20 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text not null,
   name text not null,
+  cgpa_scale integer not null default 5 check (cgpa_scale in (4, 5)),
   grading_scale jsonb null,
   total_degree_credits integer null check (total_degree_credits > 0),
   current_level integer null check (current_level between 100 and 900),
   current_semester text null check (current_semester in ('First','Second','Summer')),
   has_seen_onboarding boolean not null default false,
-  base_cgpa numeric(3,2) null check (base_cgpa >= 0 and base_cgpa <= 5),
+  base_cgpa numeric(3,2) null check (base_cgpa >= 0 and base_cgpa <= cgpa_scale),
   base_total_credits integer null check (base_total_credits >= 0),
-  target_gpa numeric(3,2) null check (target_gpa >= 0 and target_gpa <= 5),
+  target_gpa numeric(3,2) null check (target_gpa >= 0 and target_gpa <= cgpa_scale),
   created_at timestamptz not null default now()
 );
+
+alter table public.profiles
+  add column if not exists cgpa_scale integer not null default 5 check (cgpa_scale in (4, 5));
 
 alter table public.profiles
   add column if not exists grading_scale jsonb null;
@@ -41,6 +45,31 @@ alter table public.profiles
 
 alter table public.profiles
   add column if not exists target_gpa numeric(3,2) null check (target_gpa >= 0 and target_gpa <= 5);
+
+update public.profiles
+set cgpa_scale = 5
+where cgpa_scale is null or cgpa_scale not in (4, 5);
+
+alter table public.profiles
+  drop constraint if exists profiles_cgpa_scale_check;
+
+alter table public.profiles
+  add constraint profiles_cgpa_scale_check
+  check (cgpa_scale in (4, 5));
+
+alter table public.profiles
+  drop constraint if exists profiles_base_cgpa_check;
+
+alter table public.profiles
+  add constraint profiles_base_cgpa_check
+  check (base_cgpa is null or (base_cgpa >= 0 and base_cgpa <= cgpa_scale));
+
+alter table public.profiles
+  drop constraint if exists profiles_target_gpa_check;
+
+alter table public.profiles
+  add constraint profiles_target_gpa_check
+  check (target_gpa is null or (target_gpa >= 0 and target_gpa <= cgpa_scale));
 
 create table if not exists public.courses (
   id uuid primary key default gen_random_uuid(),

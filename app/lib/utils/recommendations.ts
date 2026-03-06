@@ -99,9 +99,20 @@ export function generatePersonalizedInsights({
 	const closestBoundaryCourse = inProgressCourses
 		.map((course) => {
 			const currentScore = course.currentScore ?? 0;
-			const nextBoundary = normalizedScale
-				.filter((item) => item.minScore > currentScore)
-				.sort((a, b) => a.minScore - b.minScore)[0];
+			const currentTier = normalizedScale.find(
+				(tier) => currentScore >= tier.minScore,
+			);
+
+			if (!currentTier) return null;
+
+			const currentTierIndex = normalizedScale.findIndex(
+				(tier) =>
+					tier.grade === currentTier.grade &&
+					tier.minScore === currentTier.minScore &&
+					tier.weight === currentTier.weight,
+			);
+			const nextBoundary =
+				currentTierIndex > 0 ? normalizedScale[currentTierIndex - 1] : null;
 
 			if (!nextBoundary) return null;
 

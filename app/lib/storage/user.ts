@@ -1,4 +1,4 @@
-import type { LoginInput, RegisterInput, User } from "../schemas/user";
+import type { CgpaScale, LoginInput, RegisterInput, User } from "../schemas/user";
 import {
 	normalizeGradingScale,
 	type GradingScale,
@@ -14,6 +14,7 @@ export interface AcademicBaseValues {
 export const DEFAULT_TOTAL_DEGREE_CREDITS = 120;
 export const DEFAULT_CURRENT_LEVEL = 100;
 export const DEFAULT_CURRENT_SEMESTER: "First" | "Second" | "Summer" = "First";
+export const DEFAULT_CGPA_SCALE: CgpaScale = 5;
 
 function getFirstName(name?: string | null, email?: string | null): string {
 	const normalizedName = (name ?? "").trim();
@@ -32,6 +33,10 @@ function getFirstName(name?: string | null, email?: string | null): string {
 	}
 
 	return "Student";
+}
+
+function normalizeCgpaScale(value: unknown): CgpaScale {
+	return value === 4 ? 4 : 5;
 }
 
 function parseGradingScale(value: unknown): GradingScale | null {
@@ -129,12 +134,14 @@ function normalizeAuthError(error: unknown): Error {
 function mapSupabaseUserToAppUser(
 	user: { id: string; email?: string | null; created_at?: string },
 	profileName?: string,
+	profileCgpaScale?: unknown,
 ): User {
 	return {
 		id: user.id,
 		email: user.email || "",
 		name: getFirstName(profileName, user.email),
 		password: "",
+		cgpaScale: normalizeCgpaScale(profileCgpaScale),
 		totalDegreeCredits: DEFAULT_TOTAL_DEGREE_CREDITS,
 		currentLevel: DEFAULT_CURRENT_LEVEL,
 		currentSemester: DEFAULT_CURRENT_SEMESTER,
@@ -191,7 +198,7 @@ export async function createUser(data: RegisterInput): Promise<User> {
 
 	await upsertProfileSafe(authUser, data.name);
 
-	return mapSupabaseUserToAppUser(authUser, data.name);
+	return mapSupabaseUserToAppUser(authUser, data.name, DEFAULT_CGPA_SCALE);
 }
 
 /**
@@ -240,11 +247,15 @@ export async function authenticateUser(data: LoginInput): Promise<User> {
 
 	const { data: profileData } = await supabase
 		.from("profiles")
-		.select("name")
+		.select("name, cgpa_scale")
 		.eq("id", authData.user.id)
 		.single();
 
-	return mapSupabaseUserToAppUser(authData.user, profileData?.name);
+	return mapSupabaseUserToAppUser(
+		authData.user,
+		profileData?.name,
+		profileData?.cgpa_scale,
+	);
 }
 
 /**
@@ -256,11 +267,15 @@ export async function getCurrentUser(): Promise<User | null> {
 
 	const { data: profileData } = await supabase
 		.from("profiles")
-		.select("name")
+		.select("name, cgpa_scale")
 		.eq("id", authData.user.id)
 		.single();
 
-	return mapSupabaseUserToAppUser(authData.user, profileData?.name);
+	return mapSupabaseUserToAppUser(
+		authData.user,
+		profileData?.name,
+		profileData?.cgpa_scale,
+	);
 }
 
 /**
@@ -275,6 +290,36 @@ export function setCurrentUser(_user: User): void {
  */
 export async function logout(): Promise<void> {
 	const { error } = await supabase.auth.signOut();
+	if (error) {
+		throw normalizeAuthError(new Error(error.message));
+	}
+}
+
+export async function getUserCgpaScale(userId: string): Promise<CgpaScale> {
+	await ensureProfileForUser(userId);
+
+	const { data, error } = await supabase
+		.from("profiles")
+		.select("cgpa_scale")
+		.eq("id", userId)
+		.maybeSingle();
+
+	if (error || !data) return DEFAULT_CGPA_SCALE;
+
+	return normalizeCgpaScale(data.cgpa_scale);
+}
+
+export async function setUserCgpaScale(
+	userId: string,
+	cgpaScale: CgpaScale,
+): Promise<void> {
+	await ensureProfileForUser(userId);
+
+	const { error } = await supabase
+		.from("profiles")
+		.update({ cgpa_scale: normalizeCgpaScale(cgpaScale) })
+		.eq("id", userId);
+
 	if (error) {
 		throw normalizeAuthError(new Error(error.message));
 	}

@@ -1,4 +1,6 @@
+import { GRADING_SCALES } from "../gradingScales";
 import { normalizeGradingScale, type GradingScale } from "../schemas/grading-scale";
+import type { CgpaScale } from "../schemas/user";
 
 export interface InProgressCourseForSuggestion {
 	id?: string;
@@ -18,6 +20,7 @@ export interface SuggestCourseGradesInput {
 	requiredSemesterGPA: number;
 	inProgressCourses: InProgressCourseForSuggestion[];
 	gradingScale?: GradingScale | null;
+	cgpaScale?: CgpaScale;
 }
 
 export interface SuggestCourseGradesResult {
@@ -33,6 +36,20 @@ export interface SuggestCourseGradesResult {
 interface InternalSuggestionState {
 	course: InProgressCourseForSuggestion;
 	gradeIndex: number;
+}
+
+function normalizeCgpaScale(value?: number): CgpaScale {
+	return value === 4 ? 4 : 5;
+}
+
+function getDefaultScaleFromCgpa(cgpaScale: CgpaScale): GradingScale {
+	const currentScale = GRADING_SCALES[cgpaScale];
+
+	return currentScale.map((tier) => ({
+		grade: tier.grade,
+		minScore: tier.minScore,
+		weight: tier.points,
+	}));
 }
 
 function round2(value: number): number {
@@ -73,7 +90,7 @@ function toPublicSuggestions(
 export function suggestCourseGrades(
 	input: SuggestCourseGradesInput,
 ): SuggestCourseGradesResult {
-	const { requiredSemesterGPA, inProgressCourses, gradingScale } = input;
+	const { requiredSemesterGPA, inProgressCourses, gradingScale, cgpaScale } = input;
 
 	if (!Number.isFinite(requiredSemesterGPA) || requiredSemesterGPA < 0) {
 		return {
@@ -104,7 +121,11 @@ export function suggestCourseGrades(
 		}
 	}
 
-	const normalizedScale = normalizeGradingScale(gradingScale)
+	const normalizedCgpaScale = normalizeCgpaScale(cgpaScale);
+	const defaultScale = getDefaultScaleFromCgpa(normalizedCgpaScale);
+	const normalizedScale = normalizeGradingScale(
+		gradingScale && gradingScale.length > 0 ? gradingScale : defaultScale,
+	)
 		.map((item) => ({ grade: item.grade, weight: item.weight }))
 		.sort((a, b) => b.weight - a.weight);
 

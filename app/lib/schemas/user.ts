@@ -6,6 +6,7 @@ export const UserSchema = v.object({
 	email: v.pipe(v.string(), v.email()),
 	name: v.string(),
 	password: v.string(),
+	cgpaScale: v.optional(v.picklist([4, 5]), 5),
 	totalDegreeCredits: v.optional(v.number()),
 	currentLevel: v.optional(v.number()),
 	currentSemester: v.optional(v.picklist(["First", "Second", "Summer"])),
@@ -34,11 +35,13 @@ export const RegisterSchema = v.object({
 	confirmPassword: v.string(),
 });
 
+export type CgpaScale = 4 | 5;
 export type User = v.InferOutput<typeof UserSchema>;
 export type LoginInput = v.InferInput<typeof LoginSchema>;
 export type RegisterInput = v.InferInput<typeof RegisterSchema>;
 export type UserWithGradingScale = User & { gradingScale?: GradingScale | null };
 export interface UserProfileSettings {
+	cgpaScale: CgpaScale;
 	totalDegreeCredits: number;
 	currentLevel: number;
 	currentSemester: "First" | "Second" | "Summer";

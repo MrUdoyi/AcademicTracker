@@ -3,11 +3,6 @@ import {
 	type GradingScale,
 } from "../schemas/grading-scale";
 
-export interface GradeThreshold {
-	grade: string;
-	threshold: number;
-}
-
 export interface CalculateRequiredExamScoreInput {
 	targetGrade: string;
 	currentScore: number;
@@ -31,15 +26,6 @@ export interface CalculateRequiredExamScoreResult {
 	error?: string;
 }
 
-function normalizeThresholds(gradingScale?: GradingScale | null): GradeThreshold[] {
-	const scale = normalizeGradingScale(gradingScale);
-
-	return scale.map((item) => ({
-		grade: item.grade,
-		threshold: item.minScore,
-	}));
-}
-
 /**
  * Calculates the exam score required to reach a target grade threshold for an in-progress course.
  * If the target is not achievable within maxExamScore, returns the highest achievable lower-grade suggestion.
@@ -55,9 +41,9 @@ export function calculateRequiredExamScore(
 			gradingScale,
 		} = input;
 
-		const thresholds = normalizeThresholds(gradingScale);
-		const targetItem = thresholds.find((item) => item.grade === targetGrade);
-		const targetGradeThreshold = targetItem?.threshold;
+		const sortedScale = normalizeGradingScale(gradingScale);
+		const targetItem = sortedScale.find((item) => item.grade === targetGrade);
+		const targetGradeThreshold = targetItem?.minScore;
 
 		if (!targetGrade || targetGrade.trim().length === 0) {
 			return { success: false, error: "Target grade is required." };
@@ -104,17 +90,17 @@ export function calculateRequiredExamScore(
 
 		const shortfall = Number((requiredExamScore - maxExamScore).toFixed(2));
 		const achievableTotal = currentScore + maxExamScore;
-		const suggestionThreshold = thresholds.find(
-			(item) =>
-				item.threshold < targetGradeThreshold && item.threshold <= achievableTotal,
+		const achievableTier = sortedScale.find(
+			(tier) => achievableTotal >= tier.minScore,
 		);
 
-		const suggestion = suggestionThreshold
+		const suggestion =
+			achievableTier && achievableTier.minScore < targetGradeThreshold
 			? {
-					grade: suggestionThreshold.grade,
-					threshold: suggestionThreshold.threshold,
+					grade: achievableTier.grade,
+					threshold: achievableTier.minScore,
 					requiredExamScore: Number(
-						Math.max(0, suggestionThreshold.threshold - currentScore).toFixed(2),
+						Math.max(0, achievableTier.minScore - currentScore).toFixed(2),
 					),
 			  }
 			: null;

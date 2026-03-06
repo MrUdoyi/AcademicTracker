@@ -3,25 +3,33 @@
 import { AlertCircle, ChevronDown, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { GradingScaleConfig } from "../components/grading-scale-config";
+import { GradingScaleConfigurator } from "../components/grading-scale-configurator";
 import { Navbar } from "../components/navbar";
 import { OfflineBanner } from "../components/offline-banner";
 import { useAuth } from "../lib/hooks/use-auth";
 import type { Course } from "../lib/schemas/course";
 import type { GradingScale } from "../lib/schemas/grading-scale";
-import { normalizeGradingScale } from "../lib/schemas/grading-scale";
+import {
+	normalizeGradingScale,
+	STANDARD_4_GRADING_SCALE,
+	STANDARD_5_GRADING_SCALE,
+} from "../lib/schemas/grading-scale";
 import { getUserCourses } from "../lib/storage/course";
 import {
+	DEFAULT_CGPA_SCALE,
 	DEFAULT_CURRENT_LEVEL,
 	DEFAULT_CURRENT_SEMESTER,
 	DEFAULT_TOTAL_DEGREE_CREDITS,
 	getUserAcademicBase,
+	getUserCgpaScale,
 	getUserCurrentAcademicContext,
 	getUserGradingScale,
 	getUserTargetGpa,
 	getUserTotalDegreeCredits,
 	setUserAcademicBase,
+	setUserCgpaScale,
 	setUserCurrentAcademicContext,
+	setUserGradingScale,
 	setUserTotalDegreeCredits,
 	setUserTargetGpa,
 	type AcademicBaseValues,
@@ -53,7 +61,7 @@ function toDisplayFirstName(name?: string, email?: string): string {
 
 export default function ProfilePage() {
 	const router = useRouter();
-	const { user, loading } = useAuth();
+	const { user, loading, refreshUser } = useAuth();
 	const [courses, setCourses] = useState<Course[]>([]);
 	const [targetGpa, setTargetGpa] = useState<number | null>(null);
 	const [targetGpaInput, setTargetGpaInput] = useState("");
@@ -62,6 +70,11 @@ export default function ProfilePage() {
 	const [isSavingGoal, setIsSavingGoal] = useState(false);
 	const [academicBase, setAcademicBase] = useState<AcademicBaseValues | null>(null);
 	const [gradingScale, setGradingScale] = useState<GradingScale | null>(null);
+	const [cgpaScale, setCgpaScale] = useState<4 | 5>(DEFAULT_CGPA_SCALE);
+	const [cgpaScaleInput, setCgpaScaleInput] = useState<4 | 5>(DEFAULT_CGPA_SCALE);
+	const [cgpaScaleMessage, setCgpaScaleMessage] = useState<string | null>(null);
+	const [cgpaScaleError, setCgpaScaleError] = useState<string | null>(null);
+	const [isSavingCgpaScale, setIsSavingCgpaScale] = useState(false);
 	const [baseCgpaInput, setBaseCgpaInput] = useState("");
 	const [baseCreditsInput, setBaseCreditsInput] = useState("");
 	const [baseMessage, setBaseMessage] = useState<string | null>(null);
@@ -126,6 +139,8 @@ export default function ProfilePage() {
 				if (isMounted) {
 					setAcademicBase(null);
 					setGradingScale(null);
+					setCgpaScale(DEFAULT_CGPA_SCALE);
+					setCgpaScaleInput(DEFAULT_CGPA_SCALE);
 					setTotalDegreeCredits(DEFAULT_TOTAL_DEGREE_CREDITS);
 					setTotalDegreeCreditsInput(String(DEFAULT_TOTAL_DEGREE_CREDITS));
 					setCurrentLevel(DEFAULT_CURRENT_LEVEL);
@@ -138,9 +153,10 @@ export default function ProfilePage() {
 				return;
 			}
 
-			const [base, scale, degreeCredits, currentContext] = await Promise.all([
+			const [base, scale, scaleValue, degreeCredits, currentContext] = await Promise.all([
 				getUserAcademicBase(user.id),
 				getUserGradingScale(user.id),
+				getUserCgpaScale(user.id),
 				getUserTotalDegreeCredits(user.id),
 				getUserCurrentAcademicContext(user.id),
 			]);
@@ -148,6 +164,8 @@ export default function ProfilePage() {
 
 			setAcademicBase(base);
 			setGradingScale(scale);
+			setCgpaScale(scaleValue);
+			setCgpaScaleInput(scaleValue);
 			setTotalDegreeCredits(degreeCredits);
 			setTotalDegreeCreditsInput(String(degreeCredits));
 			setCurrentLevel(currentContext.currentLevel);
@@ -201,12 +219,14 @@ export default function ProfilePage() {
 
 	if (!user) return null;
 	const displayName = toDisplayFirstName(user.name, user.email);
+	const userCgpaScale = user.cgpaScale ?? cgpaScale;
 
 	const cgpa = calculateCGPA(courses, academicBase, gradingScale);
-	const maxScaleWeight = normalizeGradingScale(gradingScale)[0]?.weight ?? 5;
+	const scaleMaximumWeight = normalizeGradingScale(gradingScale)[0]?.weight;
+	const maxScaleWeight = Math.min(scaleMaximumWeight ?? userCgpaScale, userCgpaScale);
 	const totalCredits = getTotalCredits(courses, academicBase?.baseTotalCredits || 0);
 	const completedCourses = getTotalCoursesCompleted(courses);
-	const goalProgress = targetGpa ? Math.min((cgpa / targetGpa) * 100, 100) : 0;
+	const goalProgress = Math.min((cgpa / userCgpaScale) * 100, 100);
 	const parsedTargetGpaInput = (() => {
 		const trimmed = targetGpaInput.trim();
 		if (!trimmed) return null;
@@ -285,6 +305,53 @@ export default function ProfilePage() {
 			);
 		} finally {
 			setIsSavingCurrentContext(false);
+		}
+	};
+
+	const handleSaveCgpaScale = async () => {
+		if (!user) return;
+
+		setCgpaScaleError(null);
+		setCgpaScaleMessage(null);
+
+		const nextScale = cgpaScaleInput;
+
+		if (academicBase?.baseCgpa !== undefined && academicBase?.baseCgpa > nextScale) {
+			setCgpaScaleError(
+				`Base CGPA (${academicBase.baseCgpa.toFixed(2)}) exceeds the selected ${nextScale}-point scale. Update base CGPA first.`,
+			);
+			return;
+		}
+
+		if (targetGpa !== null && targetGpa > nextScale) {
+			setCgpaScaleError(
+				`Target GPA (${targetGpa.toFixed(2)}) exceeds the selected ${nextScale}-point scale. Update target GPA first.`,
+			);
+			return;
+		}
+
+		setIsSavingCgpaScale(true);
+		try {
+			await setUserCgpaScale(user.id, nextScale);
+
+			const nextGradingScale = normalizeGradingScale(
+				nextScale === 4 ? STANDARD_4_GRADING_SCALE : STANDARD_5_GRADING_SCALE,
+			);
+
+			await setUserGradingScale(user.id, nextGradingScale);
+
+			setCgpaScale(nextScale);
+			setGradingScale(nextGradingScale);
+			setCgpaScaleMessage(`Grading system updated to ${nextScale}-Point Scale.`);
+			await refreshUser();
+		} catch (error) {
+			setCgpaScaleError(
+				error instanceof Error
+					? error.message
+					: "Failed to save CGPA scale settings.",
+			);
+		} finally {
+			setIsSavingCgpaScale(false);
 		}
 	};
 
@@ -466,6 +533,42 @@ export default function ProfilePage() {
 								<ChevronDown className="w-5 h-5 opacity-70 transition-transform duration-200 group-hover:scale-110 group-open:rotate-180" />
 							</summary>
 							<div className="card-body pt-0">
+								{cgpaScaleError && (
+									<div role="alert" className="alert alert-error">
+										<AlertCircle className="h-6 w-6 shrink-0" />
+										<span>{cgpaScaleError}</span>
+									</div>
+								)}
+
+								{cgpaScaleMessage && (
+									<div role="status" className="alert alert-success">
+										<span>{cgpaScaleMessage}</span>
+									</div>
+								)}
+
+								<div className="flex flex-col sm:flex-row sm:items-end gap-4 w-full">
+									<label className="form-control w-full sm:max-w-xs">
+										<span className="label-text font-medium mb-1">CGPA Scale</span>
+										<select
+											className="select select-bordered w-full"
+											value={cgpaScaleInput}
+											onChange={(event) =>
+												setCgpaScaleInput(Number(event.target.value) as 4 | 5)
+											}
+										>
+											<option value={5}>5-Point Scale</option>
+											<option value={4}>4-Point Scale</option>
+										</select>
+									</label>
+									<button
+										type="button"
+										className="btn btn-outline w-full sm:w-auto sm:ml-auto shrink-0"
+										onClick={() => void handleSaveCgpaScale()}
+										disabled={isSavingCgpaScale || cgpaScaleInput === cgpaScale}
+									>
+										{isSavingCgpaScale ? "Saving..." : "Save Scale"}
+									</button>
+								</div>
 
 								{baseError && (
 									<div role="alert" className="alert alert-error">
@@ -529,7 +632,7 @@ export default function ProfilePage() {
 
 									<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 										<p className="text-xs opacity-70">
-											Scale maximum: {maxScaleWeight.toFixed(1)}
+											Scale maximum: {userCgpaScale.toFixed(1)}
 										</p>
 										<p className="text-xs opacity-0 select-none" aria-hidden="true">
 											Placeholder
@@ -583,7 +686,7 @@ export default function ProfilePage() {
 											{isSavingGoal ? "Saving..." : "Save Target"}
 										</button>
 									</div>
-									<p className="text-xs opacity-70">Scale maximum: {maxScaleWeight.toFixed(1)}</p>
+									<p className="text-xs opacity-70">Scale maximum: {userCgpaScale.toFixed(1)}</p>
 									{targetGoalTooLow && (
 										<p className="text-sm text-red-500">{targetTooLowErrorMessage}</p>
 									)}
@@ -790,10 +893,16 @@ export default function ProfilePage() {
 								<ChevronDown className="w-5 h-5 opacity-70 transition-transform duration-200 group-hover:scale-110 group-open:rotate-180" />
 							</summary>
 							<div className="card-body pt-0">
-								<GradingScaleConfig
+								<GradingScaleConfigurator
 									userId={user.id}
 									initialScale={gradingScale}
-									onSaved={(scale) => setGradingScale(scale)}
+									initialCgpaScale={userCgpaScale}
+									onSaved={({ gradingScale: nextScale, cgpaScale: nextCgpaScale }) => {
+										setGradingScale(nextScale);
+										setCgpaScale(nextCgpaScale);
+										setCgpaScaleInput(nextCgpaScale);
+										void refreshUser();
+									}}
 								/>
 							</div>
 						</details>

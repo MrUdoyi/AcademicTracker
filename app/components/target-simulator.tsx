@@ -21,6 +21,7 @@ interface TargetSimulatorProps {
 	courses: Course[];
 	academicBase?: AcademicBaseValues | null;
 	gradingScale?: GradingScale | null;
+	cgpaScale?: number;
 	totalDegreeCredits: number;
 }
 
@@ -35,13 +36,22 @@ export function TargetSimulator({
 	courses,
 	academicBase,
 	gradingScale,
+	cgpaScale,
 	totalDegreeCredits,
 }: TargetSimulatorProps) {
 	const normalizedScale = useMemo(
 		() => normalizeGradingScale(gradingScale),
 		[gradingScale],
 	);
-	const maxScaleWeight = normalizedScale[0]?.weight ?? 5;
+	const absoluteMaxScale =
+		typeof cgpaScale === "number" && Number.isFinite(cgpaScale) && cgpaScale > 0
+			? cgpaScale
+			: 5;
+	const maxScaleWeight = Math.min(
+		normalizedScale[0]?.weight ?? absoluteMaxScale,
+		absoluteMaxScale,
+	);
+	const normalizedCgpaScale: 4 | 5 = absoluteMaxScale === 4 ? 4 : 5;
 
 	const [targetInput, setTargetInput] = useState("");
 	const [savedTarget, setSavedTarget] = useState<number | null>(null);
@@ -119,8 +129,18 @@ export function TargetSimulator({
 			pastTotalCredits: pastCredits,
 			currentSemesterCredits,
 			gradingScale: normalizedScale,
+			cgpaScale: normalizedCgpaScale,
+			absoluteMaxScale,
 		});
-	}, [parsedTarget, pastCgpa, pastCredits, currentSemesterCredits, normalizedScale]);
+	}, [
+		parsedTarget,
+		pastCgpa,
+		pastCredits,
+		currentSemesterCredits,
+		normalizedScale,
+		normalizedCgpaScale,
+		absoluteMaxScale,
+	]);
 
 	const maxAchievable = useMemo(() => {
 		return calculateMaxAchievableCGPA({
@@ -128,8 +148,17 @@ export function TargetSimulator({
 			pastTotalCredits: pastCredits,
 			totalDegreeCredits,
 			gradingScale: normalizedScale,
+			cgpaScale: normalizedCgpaScale,
+			absoluteMaxScale,
 		});
-	}, [pastCgpa, pastCredits, totalDegreeCredits, normalizedScale]);
+	}, [
+		pastCgpa,
+		pastCredits,
+		totalDegreeCredits,
+		normalizedScale,
+		normalizedCgpaScale,
+		absoluteMaxScale,
+	]);
 
 	const shouldShowOutOfReachWarning =
 		parsedTarget !== null &&
@@ -152,8 +181,9 @@ export function TargetSimulator({
 			requiredSemesterGPA: requiredSemester.requiredSemesterGPA,
 			inProgressCourses: suggestionInput,
 			gradingScale: normalizedScale,
+			cgpaScale: normalizedCgpaScale,
 		});
-	}, [requiredSemester, inProgressCourses, normalizedScale]);
+	}, [requiredSemester, inProgressCourses, normalizedScale, normalizedCgpaScale]);
 
 	const suggestionByCourse = useMemo(() => {
 		if (!baseSuggestions?.success || !baseSuggestions.suggestions) return [] as SuggestedCourseGrade[];
@@ -204,6 +234,7 @@ export function TargetSimulator({
 				units: item.units,
 			})),
 			gradingScale: normalizedScale,
+			cgpaScale: normalizedCgpaScale,
 		});
 
 		if (!redistributed.success || !redistributed.suggestions) {
@@ -211,7 +242,13 @@ export function TargetSimulator({
 		}
 
 		return [...locked, ...redistributed.suggestions].sort((a, b) => b.units - a.units);
-	}, [baseSuggestions, overrides, normalizedScale, requiredSemester?.requiredSemesterGPA]);
+	}, [
+		baseSuggestions,
+		overrides,
+		normalizedScale,
+		normalizedCgpaScale,
+		requiredSemester?.requiredSemesterGPA,
+	]);
 
 	const projectedSemesterGpa = useMemo(() => {
 		if (suggestionByCourse.length === 0) return null;
@@ -257,6 +294,13 @@ export function TargetSimulator({
 		if (parsedTarget === null || parsedTarget < 0 || parsedTarget > maxScaleWeight) {
 			setTargetError(
 				`Target CGPA must be between 0.00 and ${maxScaleWeight.toFixed(2)}.`,
+			);
+			return;
+		}
+
+		if (parsedTarget > absoluteMaxScale) {
+			setTargetError(
+				`Target CGPA cannot exceed your selected scale maximum of ${absoluteMaxScale.toFixed(2)}.`,
 			);
 			return;
 		}
@@ -334,7 +378,7 @@ export function TargetSimulator({
 							type="number"
 							className="input input-bordered w-full"
 							min={0}
-							max={maxScaleWeight}
+							max={absoluteMaxScale}
 							step={0.01}
 							placeholder="e.g. 4.50"
 							value={targetInput}

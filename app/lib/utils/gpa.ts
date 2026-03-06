@@ -1,9 +1,10 @@
 import type { Course, Grade } from "../schemas/course";
+import { GRADING_SCALES } from "../gradingScales";
 import {
-	getScaleItemByGrade,
 	normalizeGradingScale,
 	type GradingScale,
 } from "../schemas/grading-scale";
+import type { CgpaScale } from "../schemas/user";
 
 export interface CgpaBaseValues {
 	baseCgpa: number;
@@ -16,6 +17,8 @@ export interface CalculateRequiredSemesterGPAInput {
 	pastTotalCredits: number;
 	currentSemesterCredits: number;
 	gradingScale?: GradingScale | null;
+	cgpaScale?: CgpaScale;
+	absoluteMaxScale?: number;
 }
 
 export interface CalculateRequiredSemesterGPAResult {
@@ -32,6 +35,8 @@ export interface CalculateMaxAchievableCGPAInput {
 	pastTotalCredits: number;
 	totalDegreeCredits: number;
 	gradingScale?: GradingScale | null;
+	cgpaScale?: CgpaScale;
+	absoluteMaxScale?: number;
 }
 
 export interface CalculateMaxAchievableCGPAResult {
@@ -42,14 +47,42 @@ export interface CalculateMaxAchievableCGPAResult {
 	error?: string;
 }
 
+function normalizeCgpaScale(value?: number): CgpaScale {
+	return value === 4 ? 4 : 5;
+}
+
+function getDefaultScaleFromCgpa(cgpaScale: CgpaScale): GradingScale {
+	const currentScale = GRADING_SCALES[cgpaScale];
+
+	return currentScale.map((tier) => ({
+		grade: tier.grade,
+		minScore: tier.minScore,
+		weight: tier.points,
+	}));
+}
+
+function resolveGradingScale(
+	gradingScale: GradingScale | null | undefined,
+	cgpaScale: CgpaScale,
+): GradingScale {
+	const fallbackScale = getDefaultScaleFromCgpa(cgpaScale);
+	const source = gradingScale && gradingScale.length > 0 ? gradingScale : fallbackScale;
+
+	return normalizeGradingScale(source);
+}
+
 /**
  * Convert grade to grade points
  */
 export function gradeToPoints(
 	grade: Grade,
 	gradingScale?: GradingScale | null,
+	cgpaScale: CgpaScale = 5,
 ): number {
-	return getScaleItemByGrade(grade, gradingScale)?.weight ?? 0;
+	const currentScale = resolveGradingScale(gradingScale, normalizeCgpaScale(cgpaScale));
+	const gradeMatch = currentScale.find((item) => item.grade === grade);
+
+	return gradeMatch?.weight ?? 0;
 }
 
 /**
@@ -58,8 +91,12 @@ export function gradeToPoints(
 export function calculateGPA(
 	courses: Course[],
 	gradingScale?: GradingScale | null,
+	cgpaScale: CgpaScale = 5,
 ): number {
-	const normalizedScale = normalizeGradingScale(gradingScale);
+	const normalizedScale = resolveGradingScale(
+		gradingScale,
+		normalizeCgpaScale(cgpaScale),
+	);
 	const completedCourses = courses.filter(
 		(c) => c.status === "completed" && c.grade,
 	);
@@ -71,7 +108,8 @@ export function calculateGPA(
 
 	for (const course of completedCourses) {
 		if (course.grade) {
-			const points = gradeToPoints(course.grade, normalizedScale);
+			const gradeMatch = normalizedScale.find((item) => item.grade === course.grade);
+			const points = gradeMatch?.weight ?? 0;
 			totalPoints += points * course.units;
 			totalUnits += course.units;
 		}
@@ -88,6 +126,7 @@ export function calculateSemesterGPA(
 	semester: string,
 	year: number,
 	gradingScale?: GradingScale | null,
+	cgpaScale: CgpaScale = 5,
 ): number {
 	const semesterCourses = courses.filter(
 		(c) =>
@@ -97,7 +136,7 @@ export function calculateSemesterGPA(
 			c.grade,
 	);
 
-	return calculateGPA(semesterCourses, gradingScale);
+	return calculateGPA(semesterCourses, gradingScale, cgpaScale);
 }
 
 /**
@@ -107,8 +146,9 @@ export function calculateCGPA(
 	courses: Course[],
 	base?: CgpaBaseValues | null,
 	gradingScale?: GradingScale | null,
+	cgpaScale: CgpaScale = 5,
 ): number {
-	return calculateCGPAWithBase(courses, base, gradingScale);
+	return calculateCGPAWithBase(courses, base, gradingScale, cgpaScale);
 }
 
 /**
@@ -118,8 +158,12 @@ export function calculateCGPAWithBase(
 	courses: Course[],
 	base?: CgpaBaseValues | null,
 	gradingScale?: GradingScale | null,
+	cgpaScale: CgpaScale = 5,
 ): number {
-	const normalizedScale = normalizeGradingScale(gradingScale);
+	const normalizedScale = resolveGradingScale(
+		gradingScale,
+		normalizeCgpaScale(cgpaScale),
+	);
 	const completedCourses = courses.filter(
 		(course) => course.status === "completed" && course.grade,
 	);
@@ -129,7 +173,8 @@ export function calculateCGPAWithBase(
 
 	for (const course of completedCourses) {
 		if (!course.grade) continue;
-		totalPoints += gradeToPoints(course.grade, normalizedScale) * course.units;
+		const gradeMatch = normalizedScale.find((item) => item.grade === course.grade);
+		totalPoints += (gradeMatch?.weight ?? 0) * course.units;
 		totalUnits += course.units;
 	}
 
@@ -178,6 +223,7 @@ export function getCoursesInProgress(courses: Course[]): number {
 export function getSemesterPerformance(
 	courses: Course[],
 	gradingScale?: GradingScale | null,
+	cgpaScale: CgpaScale = 5,
 ): Array<{ semester: string; gpa: number; year: number }> {
 	const semesters = new Map<string, { courses: Course[]; year: number }>();
 
@@ -198,7 +244,7 @@ export function getSemesterPerformance(
 		([key, { courses: semCourses, year }]) => ({
 			semester: key.split("-")[0],
 			year,
-			gpa: calculateGPA(semCourses, gradingScale),
+			gpa: calculateGPA(semCourses, gradingScale, cgpaScale),
 		}),
 	);
 
@@ -230,10 +276,11 @@ export function generateInsights(
 	courses: Course[],
 	base?: CgpaBaseValues | null,
 	gradingScale?: GradingScale | null,
+	cgpaScale: CgpaScale = 5,
 ): string[] {
 	const insights: string[] = [];
-	const cgpa = calculateCGPAWithBase(courses, base, gradingScale);
-	const performance = getSemesterPerformance(courses, gradingScale);
+	const cgpa = calculateCGPAWithBase(courses, base, gradingScale, cgpaScale);
+	const performance = getSemesterPerformance(courses, gradingScale, cgpaScale);
 
 	if (cgpa >= 4.5) {
 		insights.push(
@@ -288,6 +335,8 @@ export function calculateRequiredSemesterGPA(
 		pastTotalCredits,
 		currentSemesterCredits,
 		gradingScale,
+		cgpaScale,
+		absoluteMaxScale,
 	} = input;
 
 	if (!Number.isFinite(targetCGPA) || targetCGPA < 0) {
@@ -321,8 +370,18 @@ export function calculateRequiredSemesterGPA(
 		};
 	}
 
-	const normalizedScale = normalizeGradingScale(gradingScale);
-	const maxPossibleSemesterGPA = normalizedScale[0]?.weight ?? 5;
+	const normalizedCgpaScale = normalizeCgpaScale(cgpaScale);
+	const normalizedScale = resolveGradingScale(gradingScale, normalizedCgpaScale);
+	const normalizedAbsoluteMaxScale =
+		typeof absoluteMaxScale === "number" &&
+		Number.isFinite(absoluteMaxScale) &&
+		absoluteMaxScale > 0
+			? absoluteMaxScale
+			: normalizedCgpaScale;
+	const maxPossibleSemesterGPA = Math.min(
+		normalizedScale[0]?.weight ?? normalizedAbsoluteMaxScale,
+		normalizedAbsoluteMaxScale,
+	);
 
 	const requiredRaw =
 		((targetCGPA * (pastTotalCredits + currentSemesterCredits)) -
@@ -359,7 +418,14 @@ export function calculateRequiredSemesterGPA(
 export function calculateMaxAchievableCGPA(
 	input: CalculateMaxAchievableCGPAInput,
 ): CalculateMaxAchievableCGPAResult {
-	const { pastCGPA, pastTotalCredits, totalDegreeCredits, gradingScale } = input;
+	const {
+		pastCGPA,
+		pastTotalCredits,
+		totalDegreeCredits,
+		gradingScale,
+		cgpaScale,
+		absoluteMaxScale,
+	} = input;
 
 	if (!Number.isFinite(pastCGPA) || pastCGPA < 0) {
 		return {
@@ -382,8 +448,18 @@ export function calculateMaxAchievableCGPA(
 		};
 	}
 
-	const normalizedScale = normalizeGradingScale(gradingScale);
-	const maxPossibleSemesterGPA = normalizedScale[0]?.weight ?? 5;
+	const normalizedCgpaScale = normalizeCgpaScale(cgpaScale);
+	const normalizedScale = resolveGradingScale(gradingScale, normalizedCgpaScale);
+	const normalizedAbsoluteMaxScale =
+		typeof absoluteMaxScale === "number" &&
+		Number.isFinite(absoluteMaxScale) &&
+		absoluteMaxScale > 0
+			? absoluteMaxScale
+			: normalizedCgpaScale;
+	const maxPossibleSemesterGPA = Math.min(
+		normalizedScale[0]?.weight ?? normalizedAbsoluteMaxScale,
+		normalizedAbsoluteMaxScale,
+	);
 	const cappedPastCredits = Math.min(pastTotalCredits, totalDegreeCredits);
 	const remainingCredits = Math.max(totalDegreeCredits - cappedPastCredits, 0);
 	const totalCreditsAtGraduation = cappedPastCredits + remainingCredits;
