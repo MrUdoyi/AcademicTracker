@@ -78,8 +78,8 @@ create table if not exists public.courses (
   title text not null,
   units integer not null check (units between 1 and 10),
   level integer not null default 100 check (level between 100 and 900),
-  grade text null check (grade in ('A','B+','B','C+','C','D+','D','E','F')),
-  target_grade text null check (target_grade in ('A','B+','B','C+','C','D+','D','E','F')),
+  grade text null check (grade in ('A','B','C','D','E','F')),
+  target_grade text null check (target_grade in ('A','B','C','D','E','F')),
   current_score numeric(6,2) not null default 0 check (current_score >= 0),
   max_assessment_score integer not null default 30 check (max_assessment_score in (30, 40)),
   semester text not null check (semester in ('First','Second','Summer')),
@@ -91,7 +91,7 @@ create table if not exists public.courses (
 );
 
 alter table public.courses
-  add column if not exists target_grade text null check (target_grade in ('A','B+','B','C+','C','D+','D','E','F'));
+  add column if not exists target_grade text null check (target_grade in ('A','B','C','D','E','F'));
 
 alter table public.courses
   add column if not exists current_score numeric(6,2) not null default 0 check (current_score >= 0);
@@ -101,6 +101,38 @@ alter table public.courses
 
 alter table public.courses
   add column if not exists level integer not null default 100 check (level between 100 and 900);
+
+update public.courses
+set grade = case grade
+  when 'B+' then 'B'
+  when 'C+' then 'C'
+  when 'D+' then 'D'
+  else grade
+end
+where grade in ('B+','C+','D+');
+
+update public.courses
+set target_grade = case target_grade
+  when 'B+' then 'B'
+  when 'C+' then 'C'
+  when 'D+' then 'D'
+  else target_grade
+end
+where target_grade in ('B+','C+','D+');
+
+alter table public.courses
+  drop constraint if exists courses_grade_check;
+
+alter table public.courses
+  add constraint courses_grade_check
+  check (grade is null or grade in ('A','B','C','D','E','F'));
+
+alter table public.courses
+  drop constraint if exists courses_target_grade_check;
+
+alter table public.courses
+  add constraint courses_target_grade_check
+  check (target_grade is null or target_grade in ('A','B','C','D','E','F'));
 
 create table if not exists public.insights (
   user_id uuid primary key references auth.users(id) on delete cascade,

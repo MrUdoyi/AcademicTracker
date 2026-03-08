@@ -4,6 +4,7 @@ import {
 	type GradingScale,
 	type GradingScaleItem,
 } from "../schemas/grading-scale";
+import { storage } from "./base";
 import { supabase } from "../supabase/client";
 
 export interface AcademicBaseValues {
@@ -15,6 +16,39 @@ export const DEFAULT_TOTAL_DEGREE_CREDITS = 120;
 export const DEFAULT_CURRENT_LEVEL = 100;
 export const DEFAULT_CURRENT_SEMESTER: "First" | "Second" | "Summer" = "First";
 export const DEFAULT_CGPA_SCALE: CgpaScale = 5;
+const SUPPORTED_SCALE_GRADES = new Set(["A", "B", "C", "D", "E", "F"]);
+const ACADEMIC_BASE_CACHE_KEY_PREFIX = "apt_academic_base_cache";
+
+function getAcademicBaseCacheKey(userId: string): string {
+	return `${ACADEMIC_BASE_CACHE_KEY_PREFIX}:${userId}`;
+}
+
+function saveAcademicBaseCache(userId: string, base: AcademicBaseValues | null): void {
+	storage.set(getAcademicBaseCacheKey(userId), base);
+}
+
+function clearAcademicBaseCache(userId: string): void {
+	storage.remove(getAcademicBaseCacheKey(userId));
+}
+
+export function getCachedUserAcademicBase(userId: string): AcademicBaseValues | null {
+	const cached = storage.get<AcademicBaseValues | null>(getAcademicBaseCacheKey(userId));
+	if (!cached) return null;
+
+	if (
+		typeof cached.baseCgpa !== "number" ||
+		!Number.isFinite(cached.baseCgpa) ||
+		typeof cached.baseTotalCredits !== "number" ||
+		!Number.isFinite(cached.baseTotalCredits)
+	) {
+		return null;
+	}
+
+	return {
+		baseCgpa: Number(cached.baseCgpa),
+		baseTotalCredits: Math.max(0, Math.trunc(cached.baseTotalCredits)),
+	};
+}
 
 function getFirstName(name?: string | null, email?: string | null): string {
 	const normalizedName = (name ?? "").trim();
@@ -47,13 +81,13 @@ function parseGradingScale(value: unknown): GradingScale | null {
 			typeof entry === "object" && entry !== null,
 		)
 		.map((entry) => ({
-			grade: String(entry.grade ?? "").trim(),
+			grade: String(entry.grade ?? "").trim().toUpperCase(),
 			minScore: Number(entry.minScore),
 			weight: Number(entry.weight),
 		}))
 		.filter(
 			(item) =>
-				item.grade.length > 0 &&
+				SUPPORTED_SCALE_GRADES.has(item.grade) &&
 				Number.isFinite(item.minScore) &&
 				Number.isFinite(item.weight),
 		);
@@ -385,10 +419,13 @@ export async function getUserAcademicBase(
 		return null;
 	}
 
-	return {
+	const normalizedBase = {
 		baseCgpa,
 		baseTotalCredits,
 	};
+
+	saveAcademicBaseCache(userId, normalizedBase);
+	return normalizedBase;
 }
 
 /**
@@ -417,6 +454,15 @@ export async function setUserAcademicBase(
 
 	if (error) {
 		throw normalizeAuthError(new Error(error.message));
+	}
+
+	if (base) {
+		saveAcademicBaseCache(userId, {
+			baseCgpa: Number(base.baseCgpa.toFixed(2)),
+			baseTotalCredits: Math.max(0, Math.trunc(base.baseTotalCredits)),
+		});
+	} else {
+		clearAcademicBaseCache(userId);
 	}
 }
 

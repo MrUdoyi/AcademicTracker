@@ -62,8 +62,8 @@ describe("gradeToPoints", () => {
 		expect(gradeToPoints("A")).toBe(5.0);
 	});
 
-	test("converts B+ to 4.5", () => {
-		expect(gradeToPoints("B+")).toBe(4.5);
+	test("converts B to 4.0", () => {
+		expect(gradeToPoints("B")).toBe(4.0);
 	});
 
 	test("converts F to 0.0", () => {

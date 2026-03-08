@@ -12,7 +12,6 @@ describe("suggestCourseGrades", () => {
 			],
 			gradingScale: [
 				{ grade: "A", minScore: 70, weight: 5 },
-				{ grade: "B+", minScore: 65, weight: 4.5 },
 				{ grade: "B", minScore: 60, weight: 4 },
 				{ grade: "C", minScore: 50, weight: 3 },
 			],

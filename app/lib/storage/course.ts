@@ -1,4 +1,5 @@
 import type { Course, CreateCourseInput, Grade } from "../schemas/course";
+import { storage } from "./base";
 import { supabase } from "../supabase/client";
 
 type CourseRow = {
@@ -19,11 +20,41 @@ type CourseRow = {
 	updated_at: string;
 };
 
-const VALID_GRADES: Grade[] = ["A", "B+", "B", "C+", "C", "D+", "D", "E", "F"];
+const VALID_GRADES: Grade[] = ["A", "B", "C", "D", "E", "F"];
+const COURSE_CACHE_KEY_PREFIX = "apt_courses_cache";
+const LEGACY_GRADE_ALIASES: Record<string, Grade> = {
+	"B+": "B",
+	"C+": "C",
+	"D+": "D",
+};
+
+function getCoursesCacheKey(userId: string): string {
+	return `${COURSE_CACHE_KEY_PREFIX}:${userId}`;
+}
+
+function saveCoursesCache(userId: string, courses: Course[]): void {
+	storage.set(getCoursesCacheKey(userId), courses);
+}
+
+function getCoursesCache(userId: string): Course[] {
+	const cached = storage.get<Course[]>(getCoursesCacheKey(userId));
+	if (!Array.isArray(cached)) return [];
+	return cached;
+}
+
+function clearCoursesCache(userId: string): void {
+	storage.remove(getCoursesCacheKey(userId));
+}
 
 function toGrade(value: string | null): Grade | undefined {
 	if (!value) return undefined;
-	return VALID_GRADES.includes(value as Grade) ? (value as Grade) : undefined;
+
+	const normalizedValue = value.trim().toUpperCase();
+	const mappedValue = LEGACY_GRADE_ALIASES[normalizedValue] ?? normalizedValue;
+
+	return VALID_GRADES.includes(mappedValue as Grade)
+		? (mappedValue as Grade)
+		: undefined;
 }
 
 function toMaxAssessmentScore(value: number | null): 30 | 40 {
@@ -81,7 +112,14 @@ export async function getUserCourses(userId: string): Promise<Course[]> {
 		.order("year", { ascending: false });
 
 	if (error) throw new Error(error.message);
-	return ((data || []) as CourseRow[]).map(mapRowToCourse);
+
+	const mappedCourses = ((data || []) as CourseRow[]).map(mapRowToCourse);
+	saveCoursesCache(userId, mappedCourses);
+	return mappedCourses;
+}
+
+export function getCachedUserCourses(userId: string): Course[] {
+	return getCoursesCache(userId);
 }
 
 /**
@@ -127,7 +165,10 @@ export async function createCourse(userId: string, data: CreateCourseInput): Pro
 		throw new Error(error?.message || "Failed to create course");
 	}
 
-	return mapRowToCourse(created as CourseRow);
+	const mappedCourse = mapRowToCourse(created as CourseRow);
+	const currentCache = getCoursesCache(userId);
+	saveCoursesCache(userId, [mappedCourse, ...currentCache]);
+	return mappedCourse;
 }
 
 /**
@@ -165,15 +206,39 @@ export async function updateCourse(
 		throw new Error(error?.message || "Course not found");
 	}
 
-	return mapRowToCourse(updated as CourseRow);
+	const mappedCourse = mapRowToCourse(updated as CourseRow);
+	const currentCache = getCoursesCache(mappedCourse.userId);
+	saveCoursesCache(
+		mappedCourse.userId,
+		currentCache.map((course) => (course.id === mappedCourse.id ? mappedCourse : course)),
+	);
+	return mappedCourse;
 }
 
 /**
  * Delete course
  */
 export async function deleteCourse(id: string): Promise<void> {
+	const targetCourse = await getCourseById(id);
 	const { error } = await supabase.from("courses").delete().eq("id", id);
 	if (error) throw new Error(error.message);
+
+	if (targetCourse) {
+		const currentCache = getCoursesCache(targetCourse.userId);
+		saveCoursesCache(
+			targetCourse.userId,
+			currentCache.filter((course) => course.id !== id),
+		);
+	}
+}
+
+/**
+ * Delete all courses for a user
+ */
+export async function clearUserCourses(userId: string): Promise<void> {
+	const { error } = await supabase.from("courses").delete().eq("user_id", userId);
+	if (error) throw new Error(error.message);
+	clearCoursesCache(userId);
 }
 
 /**

@@ -6,12 +6,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../lib/hooks/use-auth";
 import type { Course } from "../lib/schemas/course";
 import type { GradingScale } from "../lib/schemas/grading-scale";
-import { getUserCourses } from "../lib/storage/course";
+import { getCachedUserCourses, getUserCourses } from "../lib/storage/course";
 import {
 	getReadNotificationIds,
 	saveReadNotificationIds,
 } from "../lib/storage/notifications";
 import {
+	getCachedUserAcademicBase,
 	getUserAcademicBase,
 	getUserGradingScale,
 	getUserTargetGpa,
@@ -104,6 +105,17 @@ export function NotificationCenter() {
 				return;
 			}
 
+			const cachedCourses = getCachedUserCourses(user.id);
+			const cachedBase = getCachedUserAcademicBase(user.id);
+			if (cachedCourses.length > 0) {
+				const quickReminders = buildReminders(cachedCourses, null, cachedBase, null);
+				const storedReadIds = getReadNotificationIds(user.id);
+				setReminders(quickReminders);
+				setReadIds(
+					storedReadIds.filter((id) => quickReminders.some((item) => item.id === id)),
+				);
+			}
+
 			const [courses, targetGpa, base, gradingScale] = await Promise.all([
 				getUserCourses(user.id),
 				getUserTargetGpa(user.id),
@@ -155,6 +167,16 @@ export function NotificationCenter() {
 
 	const markAllRead = () => {
 		setReadIds(reminders.map((item) => item.id));
+	};
+
+	const clearToastReminder = () => {
+		if (!toastReminder) return;
+
+		setReadIds((prev) => {
+			if (prev.includes(toastReminder.id)) return prev;
+			return [...prev, toastReminder.id];
+		});
+		setToastReminder(null);
 	};
 
 	if (!user) return null;
@@ -217,9 +239,18 @@ export function NotificationCenter() {
 							toastReminder.type === "warning" ? "alert-warning" : "alert-info"
 						}`}
 					>
-						<div>
+						<div className="flex w-full items-start justify-between gap-3">
+							<div>
 							<span className="font-semibold">{toastReminder.title}</span>
 							<div className="text-xs">{toastReminder.message}</div>
+							</div>
+							<button
+								type="button"
+								className="btn btn-ghost btn-xs"
+								onClick={clearToastReminder}
+							>
+								Clear
+							</button>
 						</div>
 					</div>
 				</div>

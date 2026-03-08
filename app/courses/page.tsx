@@ -2,7 +2,7 @@
 
 import { AlertCircle, Lock, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import * as v from "valibot";
 import { Navbar } from "../components/navbar";
 import { OfflineBanner } from "../components/offline-banner";
@@ -12,12 +12,14 @@ import { CreateCourseSchema } from "../lib/schemas/course";
 import {
 	createCourse,
 	deleteCourse,
-	getCoursesBySemester,
+	getCachedUserCourses,
+	getUserCourses,
 	updateCourse,
 } from "../lib/storage/course";
 import {
 	DEFAULT_CURRENT_LEVEL,
 	DEFAULT_CURRENT_SEMESTER,
+	getCachedUserAcademicBase,
 	getUserAcademicBase,
 	getUserCurrentAcademicContext,
 	getUserGradingScale,
@@ -34,12 +36,73 @@ const SEMESTER_ORDER: Record<"First" | "Second" | "Summer", number> = {
 	Summer: 3,
 };
 
+interface GroupedSemester {
+	semester: "First" | "Second" | "Summer";
+	courses: Course[];
+}
+
+interface GroupedLevel {
+	level: number;
+	semesters: GroupedSemester[];
+}
+
+interface GroupedSession {
+	session: number;
+	levels: GroupedLevel[];
+}
+
+function groupCoursesBySessionLevelSemester(courses: Course[]): GroupedSession[] {
+	const groupedBySession = new Map<
+		number,
+		Map<number, Record<"First" | "Second" | "Summer", Course[]>>
+	>();
+
+	for (const course of courses) {
+		const session = course.year;
+		const level = course.level ?? DEFAULT_CURRENT_LEVEL;
+
+		if (!groupedBySession.has(session)) {
+			groupedBySession.set(session, new Map());
+		}
+
+		const levels = groupedBySession.get(session)!;
+		if (!levels.has(level)) {
+			levels.set(level, {
+				First: [],
+				Second: [],
+				Summer: [],
+			});
+		}
+
+		levels.get(level)![course.semester].push(course);
+	}
+
+	return Array.from(groupedBySession.entries())
+		.sort(([sessionA], [sessionB]) => sessionB - sessionA)
+		.map(([session, levels]) => ({
+			session,
+			levels: Array.from(levels.entries())
+				.sort(([levelA], [levelB]) => levelA - levelB)
+				.map(([level, semesters]) => ({
+					level,
+					semesters: (Object.keys(SEMESTER_ORDER) as Array<
+						"First" | "Second" | "Summer"
+					>)
+						.filter((semester) => semesters[semester].length > 0)
+						.map((semester) => ({
+							semester,
+							courses: [...semesters[semester]].sort((a, b) =>
+								a.courseCode.localeCompare(b.courseCode),
+							),
+						})),
+				})),
+		}));
+}
+
 export default function CoursesPage() {
 	const router = useRouter();
 	const { user, loading } = useAuth();
-	const [coursesBySemester, setCoursesBySemester] = useState<
-		Record<string, Course[]>
-	>({});
+	const [courses, setCourses] = useState<Course[]>([]);
 	const [showModal, setShowModal] = useState(false);
 	const [editingCourse, setEditingCourse] = useState<Course | null>(null);
 	const [error, setError] = useState("");
@@ -47,10 +110,17 @@ export default function CoursesPage() {
 	const [academicBase, setAcademicBase] = useState<AcademicBaseValues | null>(null);
 	const [gradingScale, setGradingScale] = useState<GradingScale | null>(null);
 	const [gpaAlert, setGpaAlert] = useState<string | null>(null);
+	const [dismissedExamAlertKey, setDismissedExamAlertKey] = useState<string | null>(
+		null,
+	);
 	const [currentLevel, setCurrentLevel] = useState<number>(DEFAULT_CURRENT_LEVEL);
 	const [currentSemester, setCurrentSemester] = useState<
 		"First" | "Second" | "Summer"
 	>(DEFAULT_CURRENT_SEMESTER);
+	const groupedCourses = useMemo(
+		() => groupCoursesBySessionLevelSemester(courses),
+		[courses],
+	);
 
 	const isHistoricalCourse = useCallback(
 		(level: number, semester: "First" | "Second" | "Summer") => {
@@ -76,16 +146,20 @@ export default function CoursesPage() {
 	});
 
 	const loadCourses = useCallback(async () => {
-		if (!user) return {} as Record<string, Course[]>;
-		const grouped = await getCoursesBySemester(user.id);
-		setCoursesBySemester(grouped);
-		return grouped;
-	}, [user]);
+		if (!user) {
+			setCourses([]);
+			return [] as Course[];
+		}
 
-	const getFlatCourses = useCallback(
-		(grouped: Record<string, Course[]>) => Object.values(grouped).flat(),
-		[],
-	);
+		const cachedCourses = getCachedUserCourses(user.id);
+		if (cachedCourses.length > 0) {
+			setCourses(cachedCourses);
+		}
+
+		const userCourses = await getUserCourses(user.id);
+		setCourses(userCourses);
+		return userCourses;
+	}, [user]);
 
 	useEffect(() => {
 		if (!loading && !user) {
@@ -111,6 +185,11 @@ export default function CoursesPage() {
 					setCurrentSemester(DEFAULT_CURRENT_SEMESTER);
 				}
 				return;
+			}
+
+			const cachedBase = getCachedUserAcademicBase(user.id);
+			if (isMounted && cachedBase) {
+				setAcademicBase(cachedBase);
 			}
 
 			const [target, base, scale, currentContext] = await Promise.all([
@@ -187,8 +266,7 @@ export default function CoursesPage() {
 				formData.level,
 				formData.semester,
 			);
-			const beforeCourses = getFlatCourses(coursesBySemester);
-			const previousCgpa = calculateCGPA(beforeCourses, academicBase, gradingScale);
+			const previousCgpa = calculateCGPA(courses, academicBase, gradingScale);
 
 			if (
 				formData.status === "in-progress" &&
@@ -212,11 +290,10 @@ export default function CoursesPage() {
 			}
 
 			setShowModal(false);
-			const groupedAfterSave = await loadCourses();
+			const coursesAfterSave = await loadCourses();
 
 			if (targetGpa !== null) {
-				const afterCourses = getFlatCourses(groupedAfterSave);
-				const newCgpa = calculateCGPA(afterCourses, academicBase, gradingScale);
+				const newCgpa = calculateCGPA(coursesAfterSave, academicBase, gradingScale);
 
 				if (previousCgpa >= targetGpa && newCgpa < targetGpa) {
 					setGpaAlert(
@@ -270,6 +347,29 @@ export default function CoursesPage() {
 			  })
 			: null;
 
+	const examPredictionAlertKey =
+		examPrediction && examPrediction.success && formData.targetGrade
+			? JSON.stringify({
+					targetGrade: formData.targetGrade,
+					currentScore: formData.currentScore,
+					maxAssessmentScore: formData.maxAssessmentScore,
+					requiredExamScore: examPrediction.requiredExamScore ?? null,
+					isTargetAchievable: examPrediction.isTargetAchievable,
+					suggestionGrade: examPrediction.suggestion?.grade ?? null,
+					suggestionRequiredScore:
+						examPrediction.suggestion?.requiredExamScore ?? null,
+			  })
+			: null;
+
+	const shouldShowExamPredictionAlert =
+		examPredictionAlertKey !== null &&
+		dismissedExamAlertKey !== examPredictionAlertKey;
+
+	const clearExamPredictionAlert = () => {
+		if (!examPredictionAlertKey) return;
+		setDismissedExamAlertKey(examPredictionAlertKey);
+	};
+
 	return (
 		<div className="min-h-screen bg-base-200">
 			<Navbar userName={user.name} />
@@ -299,7 +399,7 @@ export default function CoursesPage() {
 					</div>
 				)}
 
-				{Object.keys(coursesBySemester).length === 0 ? (
+				{courses.length === 0 ? (
 					<div className="card bg-base-100 shadow-xl">
 						<div className="card-body text-center py-12">
 							<p className="text-lg opacity-70">No courses yet</p>
@@ -310,124 +410,144 @@ export default function CoursesPage() {
 					</div>
 				) : (
 					<div className="space-y-6">
-						{Object.entries(coursesBySemester).map(([semester, courses]) => (
-							<div key={semester} className="card bg-base-100 shadow-xl">
+						{groupedCourses.map((sessionGroup) => (
+							<div key={sessionGroup.session} className="card bg-base-100 shadow-xl">
 								<div className="card-body">
 									<h2 className="card-title text-xl sm:text-2xl mb-4">
-										{semester}
+										Session {sessionGroup.session}
 									</h2>
-									<div className="overflow-x-auto">
-										<table className="table">
-											<thead>
-												<tr>
-													<th>Code</th>
-													<th>Title</th>
-													<th>Units</th>
-													<th>Level</th>
-													<th>Grade</th>
-													<th>Status</th>
-													<th>In-Progress Prediction</th>
-													<th>Actions</th>
-												</tr>
-											</thead>
-											<tbody>
-												{courses.map((course) => (
-													<tr key={course.id}>
-														<td className="font-medium">{course.courseCode}</td>
-														<td>{course.title}</td>
-														<td>{course.units}</td>
-														<td>{course.level ?? "-"}</td>
-														<td>
-															{course.grade ? (
-																<span className="badge badge-primary">
-																	{course.grade}
-																</span>
-															) : (
-																<span className="opacity-50">-</span>
-															)}
-														</td>
-														<td>
-															{course.status === "completed" ? (
-																<span className="badge badge-success gap-1 whitespace-nowrap">
-																	{isHistoricalCourse(course.level ?? currentLevel, course.semester) && (
-																		<Lock className="w-3 h-3" />
-																	)}
-																	Completed
-																</span>
-															) : (
-																<span className="badge badge-warning whitespace-nowrap">
-																	In Progress
-																</span>
-															)}
-														</td>
-														<td className="max-w-xs">
-															{course.status === "in-progress" &&
-															course.targetGrade ? (
-																(() => {
-											
-																	const prediction = calculateRequiredExamScore({
-																		targetGrade: course.targetGrade,
-																		currentScore: course.currentScore ?? 0,
-																		maxExamScore: 100 - (course.maxAssessmentScore ?? 30),
-																		gradingScale,
-																	});
+									<div className="space-y-6">
+										{sessionGroup.levels.map((levelGroup) => (
+											<div
+												key={`${sessionGroup.session}-${levelGroup.level}`}
+												className="space-y-4"
+											>
+												<h3 className="text-lg font-semibold">{levelGroup.level} Level</h3>
 
-																	if (!prediction.success) {
-																		return (
-																			<span className="text-xs text-error">Invalid prediction</span>
-																		);
-																	}
+												{levelGroup.semesters.map((semesterGroup) => (
+													<div
+														key={`${sessionGroup.session}-${levelGroup.level}-${semesterGroup.semester}`}
+														className="space-y-3"
+													>
+														<h4 className="font-medium">
+															{semesterGroup.semester} Semester
+														</h4>
+														<div className="overflow-x-auto">
+															<table className="table">
+																<thead>
+																	<tr>
+																		<th>Code</th>
+																		<th>Title</th>
+																		<th>Units</th>
+																		<th>Level</th>
+																		<th>Grade</th>
+																		<th>Status</th>
+																		<th>In-Progress Prediction</th>
+																		<th>Actions</th>
+																	</tr>
+																</thead>
+																<tbody>
+																	{semesterGroup.courses.map((course) => (
+																		<tr key={course.id}>
+																			<td className="font-medium">{course.courseCode}</td>
+																			<td>{course.title}</td>
+																			<td>{course.units}</td>
+																			<td>{course.level ?? "-"}</td>
+																			<td>
+																				{course.grade ? (
+																					<span className="badge badge-primary">
+																						{course.grade}
+																					</span>
+																				) : (
+																					<span className="opacity-50">-</span>
+																				)}
+																			</td>
+																			<td>
+																				{course.status === "completed" ? (
+																					<span className="badge badge-success gap-1 whitespace-nowrap">
+																						{isHistoricalCourse(course.level ?? currentLevel, course.semester) && (
+																							<Lock className="w-3 h-3" />
+																						)}
+																						Completed
+																					</span>
+																				) : (
+																					<span className="badge badge-warning whitespace-nowrap">
+																						In Progress
+																					</span>
+																				)}
+																			</td>
+																			<td className="max-w-xs">
+																				{course.status === "in-progress" &&
+																				course.targetGrade ? (
+																					(() => {
+																						const prediction = calculateRequiredExamScore({
+																							targetGrade: course.targetGrade,
+																							currentScore: course.currentScore ?? 0,
+																							maxExamScore: 100 - (course.maxAssessmentScore ?? 30),
+																							gradingScale,
+																						});
 
-																	if (prediction.isTargetAchievable) {
-																		return (
-																			<div className="text-xs">
-																				<div className="font-medium">
-																				Need {prediction.requiredExamScore?.toFixed(2)} / {100 - (course.maxAssessmentScore ?? 30)}
-																			</div>
-																				<div className="opacity-70">for target {course.targetGrade}</div>
-																			</div>
-																		);
-																	}
+																						if (!prediction.success) {
+																							return (
+																								<span className="text-xs text-error">Invalid prediction</span>
+																							);
+																						}
 
-																	return (
-																		<div className="text-xs text-warning">
-																			<div className="font-medium">Target {course.targetGrade} not reachable</div>
-																			{prediction.suggestion ? (
-																				<div>
-																					Try {prediction.suggestion.grade}: {prediction.suggestion.requiredExamScore.toFixed(2)} / {100 - (course.maxAssessmentScore ?? 30)}
+																						if (prediction.isTargetAchievable) {
+																							return (
+																								<div className="text-xs">
+																									<div className="font-medium">
+																										Need {prediction.requiredExamScore?.toFixed(2)} / {100 - (course.maxAssessmentScore ?? 30)}
+																									</div>
+																									<div className="opacity-70">for target {course.targetGrade}</div>
+																								</div>
+																							);
+																						}
+
+																						return (
+																							<div className="text-xs text-warning">
+																								<div className="font-medium">Target {course.targetGrade} not reachable</div>
+																								{prediction.suggestion ? (
+																									<div>
+																										Try {prediction.suggestion.grade}: {prediction.suggestion.requiredExamScore.toFixed(2)} / {100 - (course.maxAssessmentScore ?? 30)}
+																									</div>
+																								) : (
+																									<div>No lower grade target achievable.</div>
+																								)}
+																							</div>
+																						);
+																					})()
+																				) : (
+																					<span className="text-xs opacity-70">-</span>
+																				)}
+																			</td>
+																			<td>
+																				<div className="flex flex-wrap gap-2">
+																					<button
+																						type="button"
+																						onClick={() => openEditModal(course)}
+																						className="btn btn-sm btn-ghost"
+																					>
+																						Edit
+																					</button>
+																					<button
+																						type="button"
+																						onClick={() => void handleDelete(course.id)}
+																						className="btn btn-sm btn-error btn-ghost"
+																					>
+																						Delete
+																					</button>
 																				</div>
-																			) : (
-																				<div>No lower grade target achievable.</div>
-																			)}
-																		</div>
-																	);
-																})()
-															) : (
-																<span className="text-xs opacity-70">-</span>
-															)}
-														</td>
-														<td>
-															<div className="flex flex-wrap gap-2">
-																<button
-																	type="button"
-																	onClick={() => openEditModal(course)}
-																	className="btn btn-sm btn-ghost"
-																>
-																	Edit
-																</button>
-																<button
-																	type="button"
-																	onClick={() => void handleDelete(course.id)}
-																	className="btn btn-sm btn-error btn-ghost"
-																>
-																	Delete
-																</button>
-															</div>
-														</td>
-													</tr>
+																			</td>
+																		</tr>
+																	))}
+																</tbody>
+															</table>
+														</div>
+													</div>
 												))}
-											</tbody>
-										</table>
+											</div>
+										))}
 									</div>
 								</div>
 							</div>
@@ -551,11 +671,8 @@ export default function CoursesPage() {
 									>
 										<option value="">No Grade</option>
 										<option value="A">A</option>
-										<option value="B+">B+</option>
 										<option value="B">B</option>
-										<option value="C+">C+</option>
 										<option value="C">C</option>
-										<option value="D+">D+</option>
 										<option value="D">D</option>
 										<option value="E">E</option>
 										<option value="F">F</option>
@@ -583,11 +700,8 @@ export default function CoursesPage() {
 												>
 													<option value="">No target</option>
 													<option value="A">A</option>
-													<option value="B+">B+</option>
 													<option value="B">B</option>
-													<option value="C+">C+</option>
 													<option value="C">C</option>
-													<option value="D+">D+</option>
 													<option value="D">D</option>
 													<option value="E">E</option>
 													<option value="F">F</option>
@@ -635,22 +749,43 @@ export default function CoursesPage() {
 											</div>
 										</div>
 
-										{examPrediction && examPrediction.success && formData.targetGrade && (
+										{examPrediction &&
+											examPrediction.success &&
+											formData.targetGrade &&
+											shouldShowExamPredictionAlert && (
 											<div className="text-sm">
 												{examPrediction.isTargetAchievable ? (
 													<div className="alert alert-info py-2">
-														<span>
-															Need {examPrediction.requiredExamScore?.toFixed(2)} / {maxExamScore} in the final exam to reach {formData.targetGrade}.
-														</span>
+														<div className="flex w-full items-start justify-between gap-3">
+															<span>
+																Need {examPrediction.requiredExamScore?.toFixed(2)} / {maxExamScore} in the final exam to reach {formData.targetGrade}.
+															</span>
+															<button
+																type="button"
+																className="btn btn-ghost btn-xs"
+																onClick={clearExamPredictionAlert}
+															>
+																Clear
+															</button>
+														</div>
 													</div>
 												) : (
 													<div className="alert alert-warning py-2">
-														<span>
-															Target {formData.targetGrade} needs {examPrediction.requiredExamScore?.toFixed(2)} / {maxExamScore}, which is above max exam score.
-															{examPrediction.suggestion
-																? ` Try ${examPrediction.suggestion.grade} with ${examPrediction.suggestion.requiredExamScore.toFixed(2)} / ${maxExamScore}.`
-																: ""}
-														</span>
+														<div className="flex w-full items-start justify-between gap-3">
+															<span>
+																Target {formData.targetGrade} needs {examPrediction.requiredExamScore?.toFixed(2)} / {maxExamScore}, which is above max exam score.
+																{examPrediction.suggestion
+																	? ` Try ${examPrediction.suggestion.grade} with ${examPrediction.suggestion.requiredExamScore.toFixed(2)} / ${maxExamScore}.`
+																	: ""}
+															</span>
+															<button
+																type="button"
+																className="btn btn-ghost btn-xs"
+																onClick={clearExamPredictionAlert}
+															>
+																Clear
+															</button>
+														</div>
 													</div>
 												)}
 											</div>

@@ -2,11 +2,8 @@ import * as v from "valibot";
 
 export const GradeSchema = v.picklist([
 	"A",
-	"B+",
 	"B",
-	"C+",
 	"C",
-	"D+",
 	"D",
 	"E",
 	"F",

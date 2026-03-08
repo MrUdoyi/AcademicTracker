@@ -19,10 +19,11 @@ import { useNetworkStatus } from "../lib/hooks/use-network-status";
 import { useAiInsights } from "../lib/hooks/use-ai-insights";
 import { usePendingInsightsProcessor } from "../lib/hooks/use-pending-insights-processor";
 import { useInsightsSyncStatus } from "../lib/hooks/use-insights-sync-status";
-import { getUserCourses } from "../lib/storage/course";
+import { getCachedUserCourses, getUserCourses } from "../lib/storage/course";
 import { enqueuePendingAction } from "../lib/storage/queue";
 import {
 	DEFAULT_TOTAL_DEGREE_CREDITS,
+	getCachedUserAcademicBase,
 	getUserAcademicBase,
 	getUserGradingScale,
 	getUserTotalDegreeCredits,
@@ -33,7 +34,6 @@ import { generateStudyTips } from "../lib/utils/recommendations";
 import {
 	calculateCGPA,
 	calculateDegreeProgress,
-	gradeToPoints,
 	getSemesterPerformance,
 	getTotalCoursesCompleted,
 	getTotalCredits,
@@ -114,16 +114,14 @@ function getAiSyncStatusLabel(
 
 function getCoursePerformanceLevel(
 	course: Awaited<ReturnType<typeof getUserCourses>>[number],
-	gradingScale?: GradingScale | null,
 ): Exclude<PerformanceLevel, "all"> {
 	if (course.status === "in-progress" || !course.grade) {
 		return "in-progress";
 	}
 
-	const points = gradeToPoints(course.grade, gradingScale);
-	if (points >= 4.5) return "excellent";
-	if (points >= 4.0) return "good";
-	if (points >= 3.0) return "average";
+	if (course.grade === "A") return "excellent";
+	if (course.grade === "B") return "good";
+	if (course.grade === "C") return "average";
 	return "needs-improvement";
 }
 
@@ -186,6 +184,17 @@ export default function AnalysisPage() {
 					setTotalDegreeCredits(DEFAULT_TOTAL_DEGREE_CREDITS);
 				}
 				return;
+			}
+
+			const cachedCourses = getCachedUserCourses(user.id);
+			const cachedBase = getCachedUserAcademicBase(user.id);
+			if (isMounted) {
+				if (cachedCourses.length > 0) {
+					setCourses(cachedCourses);
+				}
+				if (cachedBase) {
+					setAcademicBase(cachedBase);
+				}
 			}
 
 			const [result, base, scale, degreeCredits] = await Promise.all([
@@ -278,7 +287,7 @@ export default function AnalysisPage() {
 		() =>
 			courses.filter((course) => {
 				const semesterLabel = `${course.semester} ${course.year}`;
-				const performanceLevel = getCoursePerformanceLevel(course, gradingScale);
+				const performanceLevel = getCoursePerformanceLevel(course);
 
 				const semesterMatch =
 					selectedSemester === "all" || semesterLabel === selectedSemester;
@@ -533,10 +542,10 @@ export default function AnalysisPage() {
 											}
 										>
 											<option value="all">All levels</option>
-											<option value="excellent">Excellent (A / B+)</option>
+											<option value="excellent">Excellent (A)</option>
 											<option value="good">Good (B)</option>
-											<option value="average">Average (C+ / C)</option>
-											<option value="needs-improvement">Needs improvement (D+ and below)</option>
+											<option value="average">Average (C)</option>
+											<option value="needs-improvement">Needs improvement (D and below)</option>
 											<option value="in-progress">In progress</option>
 										</select>
 									</label>
@@ -660,7 +669,7 @@ export default function AnalysisPage() {
 								<div className="card-body">
 									<h2 className="card-title">Grade Distribution</h2>
 									<div className="space-y-2">
-										{["A", "B+", "B", "C+", "C", "D+", "D", "E", "F"].map(
+										{["A", "B", "C", "D", "E", "F"].map(
 											(grade) => {
 												const count = filteredCourses.filter(
 													(c) => c.grade === grade,

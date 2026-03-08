@@ -21,10 +21,13 @@ import { TargetSimulator } from "../components/target-simulator";
 import { useAuth } from "../lib/hooks/use-auth";
 import type { Course } from "../lib/schemas/course";
 import type { GradingScale } from "../lib/schemas/grading-scale";
-import { getUserCourses, updateCourse } from "../lib/storage/course";
+import { getCachedUserCourses, getUserCourses, updateCourse } from "../lib/storage/course";
 import {
+	DEFAULT_CURRENT_LEVEL,
 	DEFAULT_TOTAL_DEGREE_CREDITS,
+	getCachedUserAcademicBase,
 	getUserAcademicBase,
+	getUserCurrentAcademicContext,
 	getUserGradingScale,
 	getUserTargetGpa,
 	getUserTotalDegreeCredits,
@@ -34,7 +37,6 @@ import { generatePersonalizedInsights } from "../lib/utils/recommendations";
 import {
 	calculateCGPA,
 	calculateDegreeProgress,
-	gradeToPoints,
 	getCoursesInProgress,
 	getSemesterPerformance,
 	getTotalCoursesCompleted,
@@ -74,10 +76,9 @@ function getCoursePerformanceLevel(course: Course): Exclude<PerformanceLevel, "a
 		return "in-progress";
 	}
 
-	const points = gradeToPoints(course.grade);
-	if (points >= 4.5) return "excellent";
-	if (points >= 4.0) return "good";
-	if (points >= 3.0) return "average";
+	if (course.grade === "A") return "excellent";
+	if (course.grade === "B") return "good";
+	if (course.grade === "C") return "average";
 	return "needs-improvement";
 }
 
@@ -91,6 +92,7 @@ export default function DashboardPage() {
 	const [totalDegreeCredits, setTotalDegreeCredits] = useState<number>(
 		DEFAULT_TOTAL_DEGREE_CREDITS,
 	);
+	const [currentLevel, setCurrentLevel] = useState<number>(DEFAULT_CURRENT_LEVEL);
 	const [targetCgpa, setTargetCgpa] = useState<number | null>(null);
 	const [selectedSemester, setSelectedSemester] = useState("all");
 	const [selectedCourse, setSelectedCourse] = useState("all");
@@ -128,17 +130,37 @@ export default function DashboardPage() {
 					setAcademicBase(null);
 					setGradingScale(null);
 					setTotalDegreeCredits(DEFAULT_TOTAL_DEGREE_CREDITS);
+					setCurrentLevel(DEFAULT_CURRENT_LEVEL);
 					setTargetCgpa(null);
 				}
 				return;
 			}
 
-			const [userCourses, base, scale, degreeCredits, savedTargetCgpa] = await Promise.all([
+			const cachedCourses = getCachedUserCourses(user.id);
+			const cachedBase = getCachedUserAcademicBase(user.id);
+			if (isMounted) {
+				if (cachedCourses.length > 0) {
+					setCourses(cachedCourses);
+				}
+				if (cachedBase) {
+					setAcademicBase(cachedBase);
+				}
+			}
+
+			const [
+				userCourses,
+				base,
+				scale,
+				degreeCredits,
+				savedTargetCgpa,
+				currentContext,
+			] = await Promise.all([
 				getUserCourses(user.id),
 				getUserAcademicBase(user.id),
 				getUserGradingScale(user.id),
 				getUserTotalDegreeCredits(user.id),
 				getUserTargetGpa(user.id),
+				getUserCurrentAcademicContext(user.id),
 			]);
 			if (isMounted) {
 				setCourses(userCourses);
@@ -146,6 +168,7 @@ export default function DashboardPage() {
 				setGradingScale(scale);
 				setTotalDegreeCredits(degreeCredits);
 				setTargetCgpa(savedTargetCgpa);
+				setCurrentLevel(currentContext.currentLevel);
 			}
 		};
 
@@ -160,7 +183,10 @@ export default function DashboardPage() {
 	const totalCredits = getTotalCredits(courses, academicBase?.baseTotalCredits || 0);
 	const hasSavedBaseCgpa =
 		academicBase?.baseCgpa !== undefined && academicBase?.baseCgpa !== null;
-	const shouldShowQuickStart = isQuickStartVisible && !hasSavedBaseCgpa;
+	const isEntryLevelStudent = currentLevel === DEFAULT_CURRENT_LEVEL;
+	const shouldShowQuickStart =
+		isQuickStartVisible && !hasSavedBaseCgpa && !isEntryLevelStudent;
+	const shouldShowEntryLevelStart = isQuickStartVisible && isEntryLevelStudent;
 	const completedCourses = getTotalCoursesCompleted(courses);
 	const inProgressCourses = getCoursesInProgress(courses);
 	const inProgressCourseList = useMemo(
@@ -288,6 +314,30 @@ export default function DashboardPage() {
 					<h1 className="text-3xl font-bold">Welcome back, {displayName}</h1>
 					<p className="opacity-70 mt-1">Academic progress overview</p>
 				</div>
+
+				{shouldShowEntryLevelStart && (
+					<div className="card bg-base-100 shadow-xl mb-6">
+						<div className="card-body relative pr-14">
+							<button
+								type="button"
+								onClick={handleDismissQuickStart}
+								className="btn btn-ghost btn-sm btn-circle absolute top-3 right-3"
+								aria-label="Dismiss quick start"
+							>
+								<X className="w-4 h-4" />
+							</button>
+							<h2 className="card-title">Start Here</h2>
+							<p className="text-sm opacity-70">
+								You are in 100 Level. Skip Higher-Level Quick Start and add your courses directly.
+							</p>
+							<div className="card-actions justify-start">
+								<Link href="/courses" className="btn btn-sm btn-primary">
+									Go to Courses
+								</Link>
+							</div>
+						</div>
+					</div>
+				)}
 
 				{shouldShowQuickStart && (
 					<div id="quick-start-card" className="card bg-base-100 shadow-xl mb-6">
@@ -444,10 +494,10 @@ export default function DashboardPage() {
 									}
 								>
 									<option value="all">All levels</option>
-									<option value="excellent">Excellent (A / B+)</option>
+									<option value="excellent">Excellent (A)</option>
 									<option value="good">Good (B)</option>
-									<option value="average">Average (C+ / C)</option>
-									<option value="needs-improvement">Needs improvement (D+ and below)</option>
+									<option value="average">Average (C)</option>
+									<option value="needs-improvement">Needs improvement (D and below)</option>
 									<option value="in-progress">In progress</option>
 								</select>
 							</label>

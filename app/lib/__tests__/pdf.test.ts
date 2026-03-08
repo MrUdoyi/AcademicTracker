@@ -31,7 +31,7 @@ const mockCourses = [
 		courseCode: "MATH201",
 		title: "Calculus I",
 		units: 4,
-		grade: "B+",
+		grade: "B",
 		semester: "First",
 		year: 2023,
 		status: "completed",

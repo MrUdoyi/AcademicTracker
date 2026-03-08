@@ -14,12 +14,13 @@ import {
 	STANDARD_4_GRADING_SCALE,
 	STANDARD_5_GRADING_SCALE,
 } from "../lib/schemas/grading-scale";
-import { getUserCourses } from "../lib/storage/course";
+import { clearUserCourses, getCachedUserCourses, getUserCourses } from "../lib/storage/course";
 import {
 	DEFAULT_CGPA_SCALE,
 	DEFAULT_CURRENT_LEVEL,
 	DEFAULT_CURRENT_SEMESTER,
 	DEFAULT_TOTAL_DEGREE_CREDITS,
+	getCachedUserAcademicBase,
 	getUserAcademicBase,
 	getUserCgpaScale,
 	getUserCurrentAcademicContext,
@@ -104,6 +105,9 @@ export default function ProfilePage() {
 	);
 	const [currentContextError, setCurrentContextError] = useState<string | null>(null);
 	const [isSavingCurrentContext, setIsSavingCurrentContext] = useState(false);
+	const [clearAllMessage, setClearAllMessage] = useState<string | null>(null);
+	const [clearAllError, setClearAllError] = useState<string | null>(null);
+	const [isClearingAllData, setIsClearingAllData] = useState(false);
 
 	useEffect(() => {
 		if (!loading && !user) {
@@ -118,6 +122,11 @@ export default function ProfilePage() {
 			if (!user) {
 				if (isMounted) setCourses([]);
 				return;
+			}
+
+			const cachedCourses = getCachedUserCourses(user.id);
+			if (isMounted && cachedCourses.length > 0) {
+				setCourses(cachedCourses);
 			}
 
 			const userCourses = await getUserCourses(user.id);
@@ -151,6 +160,13 @@ export default function ProfilePage() {
 					setBaseCreditsInput("");
 				}
 				return;
+			}
+
+			const cachedBase = getCachedUserAcademicBase(user.id);
+			if (isMounted && cachedBase) {
+				setAcademicBase(cachedBase);
+				setBaseCgpaInput(cachedBase.baseCgpa.toFixed(2));
+				setBaseCreditsInput(String(cachedBase.baseTotalCredits));
 			}
 
 			const [base, scale, scaleValue, degreeCredits, currentContext] = await Promise.all([
@@ -227,6 +243,7 @@ export default function ProfilePage() {
 	const totalCredits = getTotalCredits(courses, academicBase?.baseTotalCredits || 0);
 	const completedCourses = getTotalCoursesCompleted(courses);
 	const goalProgress = Math.min((cgpa / userCgpaScale) * 100, 100);
+	const isEntryLevelStudent = currentLevel === DEFAULT_CURRENT_LEVEL;
 	const parsedTargetGpaInput = (() => {
 		const trimmed = targetGpaInput.trim();
 		if (!trimmed) return null;
@@ -288,15 +305,28 @@ export default function ProfilePage() {
 
 		setIsSavingCurrentContext(true);
 		try {
+			const shouldClearQuickStartBase = parsedLevel === DEFAULT_CURRENT_LEVEL;
+
 			await setUserCurrentAcademicContext(user.id, {
 				currentLevel: parsedLevel,
 				currentSemester: currentSemesterInput,
 			});
 
+			if (shouldClearQuickStartBase) {
+				await setUserAcademicBase(user.id, null);
+				setAcademicBase(null);
+				setBaseCgpaInput("");
+				setBaseCreditsInput("");
+			}
+
 			setCurrentLevel(parsedLevel);
 			setCurrentSemester(currentSemesterInput);
 			setCurrentLevelInput(String(parsedLevel));
-			setCurrentContextMessage("Current academic context saved.");
+			setCurrentContextMessage(
+				shouldClearQuickStartBase
+					? "Current academic context saved. Higher-level Quick Start base values were cleared for 100 Level."
+					: "Current academic context saved.",
+			);
 		} catch (error) {
 			setCurrentContextError(
 				error instanceof Error
@@ -363,6 +393,26 @@ export default function ProfilePage() {
 
 		const cgpaRaw = baseCgpaInput.trim();
 		const creditsRaw = baseCreditsInput.trim();
+
+		if (isEntryLevelStudent) {
+			setIsSavingBase(true);
+			try {
+				await setUserAcademicBase(user.id, null);
+				setAcademicBase(null);
+				setBaseCgpaInput("");
+				setBaseCreditsInput("");
+				setBaseMessage("Higher-level Quick Start values cleared for 100 Level.");
+			} catch (error) {
+				setBaseError(
+					error instanceof Error
+						? error.message
+						: "Failed to clear base values.",
+				);
+			} finally {
+				setIsSavingBase(false);
+			}
+			return;
+		}
 
 		if (!cgpaRaw && !creditsRaw) {
 			setIsSavingBase(true);
@@ -474,6 +524,71 @@ export default function ProfilePage() {
 		}
 	};
 
+	const handleClearAllData = async () => {
+		if (!user) return;
+
+		const confirmed = window.confirm(
+			"This will permanently clear your courses and reset profile academic settings to defaults. Continue?",
+		);
+		if (!confirmed) return;
+
+		setClearAllError(null);
+		setClearAllMessage(null);
+		setGoalError(null);
+		setGoalMessage(null);
+		setBaseError(null);
+		setBaseMessage(null);
+		setCgpaScaleError(null);
+		setCgpaScaleMessage(null);
+		setCurrentContextError(null);
+		setCurrentContextMessage(null);
+		setDegreeCreditsError(null);
+		setDegreeCreditsMessage(null);
+
+		setIsClearingAllData(true);
+		try {
+			const defaultScale = normalizeGradingScale(STANDARD_5_GRADING_SCALE);
+
+			await clearUserCourses(user.id);
+			await Promise.all([
+				setUserTargetGpa(user.id, null),
+				setUserAcademicBase(user.id, null),
+				setUserCgpaScale(user.id, DEFAULT_CGPA_SCALE),
+				setUserGradingScale(user.id, defaultScale),
+				setUserTotalDegreeCredits(user.id, DEFAULT_TOTAL_DEGREE_CREDITS),
+				setUserCurrentAcademicContext(user.id, {
+					currentLevel: DEFAULT_CURRENT_LEVEL,
+					currentSemester: DEFAULT_CURRENT_SEMESTER,
+				}),
+			]);
+
+			setCourses([]);
+			setTargetGpa(null);
+			setTargetGpaInput("");
+			setAcademicBase(null);
+			setGradingScale(defaultScale);
+			setCgpaScale(DEFAULT_CGPA_SCALE);
+			setCgpaScaleInput(DEFAULT_CGPA_SCALE);
+			setBaseCgpaInput("");
+			setBaseCreditsInput("");
+			setTotalDegreeCredits(DEFAULT_TOTAL_DEGREE_CREDITS);
+			setTotalDegreeCreditsInput(String(DEFAULT_TOTAL_DEGREE_CREDITS));
+			setCurrentLevel(DEFAULT_CURRENT_LEVEL);
+			setCurrentSemester(DEFAULT_CURRENT_SEMESTER);
+			setCurrentLevelInput(String(DEFAULT_CURRENT_LEVEL));
+			setCurrentSemesterInput(DEFAULT_CURRENT_SEMESTER);
+			setClearAllMessage("All academic data has been cleared.");
+
+			await refreshUser();
+		} catch (error) {
+			setClearAllError(
+				error instanceof Error ? error.message : "Failed to clear all data.",
+			);
+		} finally {
+			setIsClearingAllData(false);
+		}
+	};
+
 	return (
 		<div className="min-h-screen bg-base-200">
 			<Navbar userName={displayName} />
@@ -533,6 +648,14 @@ export default function ProfilePage() {
 								<ChevronDown className="w-5 h-5 opacity-70 transition-transform duration-200 group-hover:scale-110 group-open:rotate-180" />
 							</summary>
 							<div className="card-body pt-0">
+								{isEntryLevelStudent && (
+									<div role="status" className="alert alert-info">
+										<span>
+											100 Level students should skip Higher-Level Quick Start and add courses directly.
+										</span>
+									</div>
+								)}
+
 								{cgpaScaleError && (
 									<div role="alert" className="alert alert-error">
 										<AlertCircle className="h-6 w-6 shrink-0" />
@@ -599,6 +722,7 @@ export default function ProfilePage() {
 													step={0.01}
 													placeholder="e.g. 3.85"
 													value={baseCgpaInput}
+													disabled={isEntryLevelStudent}
 													onChange={(event) => setBaseCgpaInput(event.target.value)}
 												/>
 											</div>
@@ -615,6 +739,7 @@ export default function ProfilePage() {
 													step={1}
 													placeholder="e.g. 84"
 													value={baseCreditsInput}
+													disabled={isEntryLevelStudent}
 													onChange={(event) => setBaseCreditsInput(event.target.value)}
 												/>
 											</div>
@@ -940,13 +1065,27 @@ export default function ProfilePage() {
 						<div className="card bg-base-100 shadow-xl">
 							<div className="card-body">
 								<h2 className="card-title">Actions</h2>
+								{clearAllError && (
+									<div role="alert" className="alert alert-error">
+										<AlertCircle className="h-6 w-6 shrink-0" />
+										<span>{clearAllError}</span>
+									</div>
+								)}
+
+								{clearAllMessage && (
+									<div role="status" className="alert alert-success">
+										<span>{clearAllMessage}</span>
+									</div>
+								)}
 								<div className="space-y-2">
 									<button
 										type="button"
 										className="btn btn-outline btn-error w-full justify-start gap-2"
+										onClick={() => void handleClearAllData()}
+										disabled={isClearingAllData}
 									>
 										<Trash2 className="h-5 w-5" />
-										Clear All Data
+										{isClearingAllData ? "Clearing..." : "Clear All Data"}
 									</button>
 								</div>
 							</div>
