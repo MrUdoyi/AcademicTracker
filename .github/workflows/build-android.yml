@@ -1,6 +1,7 @@
 name: Build Android App
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -8,43 +9,48 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://example.supabase.co' }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'dummy-anon-key' }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || 'dummy-gemini-key' }}
     steps:
       - uses: actions/checkout@v4
 
-      # 1. Install Node 22 (Required for Capacitor 7+)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
 
-      # 2. Install Java 21 (Required for latest Android Gradle Plugin)
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '21'
+          cache: gradle
 
-      # 3. Fix Permissions (Crucial for Windows users!)
-      # This prevents the "gradlew: Permission denied" error
       - name: Make Gradlew Executable
         run: chmod +x android/gradlew
 
       - name: Install Dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build Web
         run: npm run build
 
-      - name: Sync Capacitor
-        run: npx cap sync
+      - name: Sync Capacitor (Android)
+        run: npx cap sync android
 
-      # 4. Build the APK
       - name: Build APK
-        run: cd android && ./gradlew assembleDebug
+        working-directory: android
+        run: ./gradlew assembleDebug --stacktrace
 
-      # 5. Upload the Result
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
