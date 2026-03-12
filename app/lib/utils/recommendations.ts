@@ -17,6 +17,8 @@ export function generateStudyTips(
 	courses: Course[],
 	base?: CgpaBaseValues | null,
 	gradingScale?: GradingScale | null,
+	currentLevel: number = 100,
+	currentSemester: Course["semester"] = "First",
 ): string[] {
 	const tips: string[] = [];
 	const completedCourses = courses.filter(
@@ -34,7 +36,14 @@ export function generateStudyTips(
 		);
 	}
 
-	const cgpa = calculateCGPA(courses, base, gradingScale);
+	const cgpa = calculateCGPA(
+		courses,
+		base,
+		gradingScale,
+		undefined,
+		currentLevel,
+		currentSemester,
+	);
 	if (cgpa > 0 && cgpa < 3.0) {
 		tips.push(
 			"Your CGPA is currently below 3.0. Meet a course adviser and create a weekly recovery plan for your lowest-performing courses.",

@@ -140,6 +140,38 @@ export function calculateSemesterGPA(
 }
 
 /**
+ * The entry-level value below which a course is considered "historical"
+ * (already captured inside the Quick Start base CGPA).
+ */
+const ENTRY_LEVEL = 100;
+const SEMESTER_RANK: Record<Course["semester"], number> = {
+	First: 1,
+	Second: 2,
+	Summer: 3,
+};
+
+/**
+ * Returns true when a course is "historical" - i.e. it belongs to a level
+ * that is strictly below the user's current level AND the user has a valid
+ * Quick Start base set.  Historical courses must NOT be included in the
+ * live CGPA arithmetic because they are already baked into the base values.
+ */
+export function isHistoricalForBase(
+	courseLevel: number | undefined | null,
+	courseSemester: Course["semester"],
+	currentLevel: number,
+	currentSemester: Course["semester"],
+	hasValidBase: boolean,
+): boolean {
+	if (!hasValidBase) return false;
+	if (currentLevel <= ENTRY_LEVEL) return false;
+	const level = courseLevel ?? ENTRY_LEVEL;
+	if (level < currentLevel) return true;
+	if (level > currentLevel) return false;
+	return SEMESTER_RANK[courseSemester] < SEMESTER_RANK[currentSemester];
+}
+
+/**
  * Calculate CGPA (Cumulative GPA) for all completed courses
  */
 export function calculateCGPA(
@@ -147,23 +179,46 @@ export function calculateCGPA(
 	base?: CgpaBaseValues | null,
 	gradingScale?: GradingScale | null,
 	cgpaScale: CgpaScale = 5,
+	currentLevel: number = ENTRY_LEVEL,
+	currentSemester: Course["semester"] = "First",
 ): number {
-	return calculateCGPAWithBase(courses, base, gradingScale, cgpaScale);
+	return calculateCGPAWithBase(
+		courses,
+		base,
+		gradingScale,
+		cgpaScale,
+		currentLevel,
+		currentSemester,
+	);
 }
 
 /**
- * Calculate CGPA with optional base CGPA + base credits (quick-start values)
+ * Calculate CGPA with optional base CGPA + base credits (quick-start values).
+ *
+ * When `currentLevel` > 100 and a valid base is set, courses whose level is
+ * strictly below `currentLevel` are treated as historical and excluded from
+ * the live calculation to avoid double-counting.
+ *
+ * Formula (base present):
+ *   CGPA = (baseCgpa * baseTotalCredits + Σ newPoints) / (baseTotalCredits + Σ newCredits)
  */
 export function calculateCGPAWithBase(
 	courses: Course[],
 	base?: CgpaBaseValues | null,
 	gradingScale?: GradingScale | null,
 	cgpaScale: CgpaScale = 5,
+	currentLevel: number = ENTRY_LEVEL,
+	currentSemester: Course["semester"] = "First",
 ): number {
 	const normalizedScale = resolveGradingScale(
 		gradingScale,
 		normalizeCgpaScale(cgpaScale),
 	);
+
+	const baseCgpa = base?.baseCgpa ?? 0;
+	const baseTotalCredits = base?.baseTotalCredits ?? 0;
+	const hasValidBase = baseTotalCredits > 0 && baseCgpa >= 0;
+
 	const completedCourses = courses.filter(
 		(course) => course.status === "completed" && course.grade,
 	);
@@ -173,14 +228,21 @@ export function calculateCGPAWithBase(
 
 	for (const course of completedCourses) {
 		if (!course.grade) continue;
+		// Skip historical courses when base is set - they are already inside it
+		if (
+			isHistoricalForBase(
+				course.level,
+				course.semester,
+				currentLevel,
+				currentSemester,
+				hasValidBase,
+			)
+		)
+			continue;
 		const gradeMatch = normalizedScale.find((item) => item.grade === course.grade);
 		totalPoints += (gradeMatch?.weight ?? 0) * course.units;
 		totalUnits += course.units;
 	}
-
-	const baseCgpa = base?.baseCgpa ?? 0;
-	const baseTotalCredits = base?.baseTotalCredits ?? 0;
-	const hasValidBase = baseTotalCredits > 0 && baseCgpa >= 0;
 
 	if (hasValidBase) {
 		totalPoints += baseCgpa * baseTotalCredits;
@@ -193,14 +255,34 @@ export function calculateCGPAWithBase(
 }
 
 /**
- * Get total credits/units completed
+ * Get total credits/units completed.
+ *
+ * When `currentLevel` > 100 and a valid base is provided, only credits from
+ * non-historical courses (level >= currentLevel) are summed on top of the
+ * base credits to avoid double-counting.
  */
-export function getTotalCredits(courses: Course[], baseTotalCredits: number = 0): number {
-	return (
-		courses
+export function getTotalCredits(
+	courses: Course[],
+	baseTotalCredits: number = 0,
+	currentLevel: number = ENTRY_LEVEL,
+	currentSemester: Course["semester"] = "First",
+): number {
+	const hasValidBase = baseTotalCredits > 0;
+	const newCourseCredits = courses
 		.filter((c) => c.status === "completed")
-		.reduce((sum, course) => sum + course.units, 0) + Math.max(0, baseTotalCredits)
-	);
+		.filter(
+			(c) =>
+				!isHistoricalForBase(
+					c.level,
+					c.semester,
+					currentLevel,
+					currentSemester,
+					hasValidBase,
+				),
+		)
+		.reduce((sum, course) => sum + course.units, 0);
+
+	return newCourseCredits + Math.max(0, baseTotalCredits);
 }
 
 /**
@@ -277,9 +359,18 @@ export function generateInsights(
 	base?: CgpaBaseValues | null,
 	gradingScale?: GradingScale | null,
 	cgpaScale: CgpaScale = 5,
+	currentLevel: number = ENTRY_LEVEL,
+	currentSemester: Course["semester"] = "First",
 ): string[] {
 	const insights: string[] = [];
-	const cgpa = calculateCGPAWithBase(courses, base, gradingScale, cgpaScale);
+	const cgpa = calculateCGPAWithBase(
+		courses,
+		base,
+		gradingScale,
+		cgpaScale,
+		currentLevel,
+		currentSemester,
+	);
 	const performance = getSemesterPerformance(courses, gradingScale, cgpaScale);
 
 	if (cgpa >= 4.5) {

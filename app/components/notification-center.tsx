@@ -13,9 +13,13 @@ import {
 } from "../lib/storage/notifications";
 import {
 	getCachedUserAcademicBase,
+	getCachedUserCurrentAcademicContext,
 	getUserAcademicBase,
 	getUserGradingScale,
 	getUserTargetGpa,
+	getUserCurrentAcademicContext,
+	DEFAULT_CURRENT_LEVEL,
+	DEFAULT_CURRENT_SEMESTER,
 } from "../lib/storage/user";
 import { calculateCGPA, getCoursesInProgress, gradeToPoints } from "../lib/utils/gpa";
 
@@ -33,11 +37,20 @@ function buildReminders(
 	targetGpa: number | null,
 	base: { baseCgpa: number; baseTotalCredits: number } | null,
 	gradingScale: GradingScale | null,
+	currentLevel: number = DEFAULT_CURRENT_LEVEL,
+	currentSemester: Course["semester"] = DEFAULT_CURRENT_SEMESTER,
 ): Reminder[] {
 	const reminders: Reminder[] = [];
 	const completed = courses.filter((course) => course.status === "completed");
 	const inProgress = getCoursesInProgress(courses);
-	const cgpa = calculateCGPA(courses, base, gradingScale);
+	const cgpa = calculateCGPA(
+		courses,
+		base,
+		gradingScale,
+		undefined,
+		currentLevel,
+		currentSemester,
+	);
 
 	if (courses.length === 0) {
 		reminders.push({
@@ -107,8 +120,16 @@ export function NotificationCenter() {
 
 			const cachedCourses = getCachedUserCourses(user.id);
 			const cachedBase = getCachedUserAcademicBase(user.id);
+			const cachedContext = getCachedUserCurrentAcademicContext(user.id);
 			if (cachedCourses.length > 0) {
-				const quickReminders = buildReminders(cachedCourses, null, cachedBase, null);
+				const quickReminders = buildReminders(
+					cachedCourses,
+					null,
+					cachedBase,
+					null,
+					cachedContext.currentLevel,
+					cachedContext.currentSemester,
+				);
 				const storedReadIds = getReadNotificationIds(user.id);
 				setReminders(quickReminders);
 				setReadIds(
@@ -116,11 +137,12 @@ export function NotificationCenter() {
 				);
 			}
 
-			const [courses, targetGpa, base, gradingScale] = await Promise.all([
+			const [courses, targetGpa, base, gradingScale, currentContext] = await Promise.all([
 				getUserCourses(user.id),
 				getUserTargetGpa(user.id),
 				getUserAcademicBase(user.id),
 				getUserGradingScale(user.id),
+				getUserCurrentAcademicContext(user.id),
 			]);
 
 			if (!isMounted) return;
@@ -130,6 +152,8 @@ export function NotificationCenter() {
 				targetGpa,
 				base,
 				gradingScale,
+				currentContext.currentLevel,
+				currentContext.currentSemester,
 			);
 			const storedReadIds = getReadNotificationIds(user.id);
 			setReminders(nextReminders);

@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, GraduationCap, Lock, Mail } from "lucide-react";
+import { AlertCircle, Eye, EyeOff, GraduationCap, Lock, Mail } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -12,6 +12,7 @@ export default function LoginPage() {
 	const router = useRouter();
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
+	const [showPassword, setShowPassword] = useState(false);
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [fieldErrors, setFieldErrors] = useState<{
@@ -131,18 +132,26 @@ export default function LoginPage() {
 								<Lock className="w-4 h-4 opacity-70" />
 								<input
 									id="password-input"
-									type="password"
-									className="grow"
-									placeholder="Enter your password"
-									value={password}
-									onChange={(e) => setPassword(e.target.value)}
-									required
-									autoComplete="current-password"
-									aria-invalid={fieldErrors.password ? "true" : "false"}
-									aria-describedby={
-										fieldErrors.password ? "password-error" : undefined
-									}
-								/>
+								type={showPassword ? "text" : "password"}
+								className="grow"
+								placeholder="Enter your password"
+								value={password}
+								onChange={(e) => setPassword(e.target.value)}
+								required
+								autoComplete="current-password"
+								aria-invalid={fieldErrors.password ? "true" : "false"}
+								aria-describedby={
+									fieldErrors.password ? "password-error" : undefined
+								}
+							/>
+							<button
+								type="button"
+								className="opacity-60 hover:opacity-100"
+								onClick={() => setShowPassword((v) => !v)}
+								aria-label={showPassword ? "Hide password" : "Show password"}
+							>
+								{showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+							</button>
 							</label>
 							{fieldErrors.password && (
 								<span className="label text-error mt-1" id="password-error">

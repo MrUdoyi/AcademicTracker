@@ -21,6 +21,7 @@ import {
 	DEFAULT_CURRENT_SEMESTER,
 	DEFAULT_TOTAL_DEGREE_CREDITS,
 	getCachedUserAcademicBase,
+	getCachedUserCurrentAcademicContext,
 	getUserAcademicBase,
 	getUserCgpaScale,
 	getUserCurrentAcademicContext,
@@ -163,10 +164,16 @@ export default function ProfilePage() {
 			}
 
 			const cachedBase = getCachedUserAcademicBase(user.id);
+			const cachedContext = getCachedUserCurrentAcademicContext(user.id);
 			if (isMounted && cachedBase) {
 				setAcademicBase(cachedBase);
 				setBaseCgpaInput(cachedBase.baseCgpa.toFixed(2));
 				setBaseCreditsInput(String(cachedBase.baseTotalCredits));
+			}
+			if (isMounted) {
+				setCurrentLevel(cachedContext.currentLevel);
+				setCurrentLevelInput(String(cachedContext.currentLevel));
+				setCurrentSemester(cachedContext.currentSemester);
 			}
 
 			const [base, scale, scaleValue, degreeCredits, currentContext] = await Promise.all([
@@ -237,10 +244,22 @@ export default function ProfilePage() {
 	const displayName = toDisplayFirstName(user.name, user.email);
 	const userCgpaScale = user.cgpaScale ?? cgpaScale;
 
-	const cgpa = calculateCGPA(courses, academicBase, gradingScale);
+	const cgpa = calculateCGPA(
+		courses,
+		academicBase,
+		gradingScale,
+		undefined,
+		currentLevel,
+		currentSemester,
+	);
 	const scaleMaximumWeight = normalizeGradingScale(gradingScale)[0]?.weight;
 	const maxScaleWeight = Math.min(scaleMaximumWeight ?? userCgpaScale, userCgpaScale);
-	const totalCredits = getTotalCredits(courses, academicBase?.baseTotalCredits || 0);
+	const totalCredits = getTotalCredits(
+		courses,
+		academicBase?.baseTotalCredits || 0,
+		currentLevel,
+		currentSemester,
+	);
 	const completedCourses = getTotalCoursesCompleted(courses);
 	const goalProgress = Math.min((cgpa / userCgpaScale) * 100, 100);
 	const isEntryLevelStudent = currentLevel === DEFAULT_CURRENT_LEVEL;
@@ -348,7 +367,7 @@ export default function ProfilePage() {
 
 		if (academicBase?.baseCgpa !== undefined && academicBase?.baseCgpa > nextScale) {
 			setCgpaScaleError(
-				`Base CGPA (${academicBase.baseCgpa.toFixed(2)}) exceeds the selected ${nextScale}-point scale. Update base CGPA first.`,
+				`Current CGPA (${academicBase.baseCgpa.toFixed(2)}) exceeds the selected ${nextScale}-point scale. Update Current CGPA first.`,
 			);
 			return;
 		}
@@ -437,7 +456,7 @@ export default function ProfilePage() {
 
 		if (!Number.isFinite(parsedCgpa) || parsedCgpa < 0 || parsedCgpa > maxScaleWeight) {
 			setBaseError(
-				`Base CGPA must be a number between 0.00 and ${maxScaleWeight.toFixed(2)}.`,
+				`Current CGPA must be a number between 0.00 and ${maxScaleWeight.toFixed(2)}.`,
 			);
 			return;
 		}
@@ -447,7 +466,7 @@ export default function ProfilePage() {
 			parsedCredits < 0 ||
 			!Number.isInteger(parsedCredits)
 		) {
-			setBaseError("Base Total Credits must be a whole number greater than or equal to 0.");
+			setBaseError("Total Credits Completed must be a whole number greater than or equal to 0.");
 			return;
 		}
 
@@ -637,12 +656,12 @@ export default function ProfilePage() {
 					</div>
 
 					<div className="lg:col-span-2 space-y-6">
-						<details className="group card bg-base-100 shadow-xl [&_summary::-webkit-details-marker]:hidden">
+						<details id="quick-start-section" className="group card bg-base-100 shadow-xl [&_summary::-webkit-details-marker]:hidden">
 							<summary className="card-body cursor-pointer flex items-center justify-between gap-3">
 								<div>
 									<h2 className="card-title">Advanced: Quick Start (Higher Level)</h2>
 									<p className="text-sm opacity-70">
-										Set base CGPA/credits only if you are migrating with prior history.
+										Only enter your current CGPA and credits if you are in your 2nd year (200 Level) or higher.
 									</p>
 								</div>
 								<ChevronDown className="w-5 h-5 opacity-70 transition-transform duration-200 group-hover:scale-110 group-open:rotate-180" />
@@ -651,7 +670,7 @@ export default function ProfilePage() {
 								{isEntryLevelStudent && (
 									<div role="status" className="alert alert-info">
 										<span>
-											100 Level students should skip Higher-Level Quick Start and add courses directly.
+											This section is for 200 Level students and above. If you are in 100 Level, skip this and add your courses directly.
 										</span>
 									</div>
 								)}
@@ -711,7 +730,7 @@ export default function ProfilePage() {
 										<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1 min-w-0">
 											<div className="min-w-0">
 												<label htmlFor="base-cgpa-input" className="label">
-													<span className="label-text font-medium">Base CGPA</span>
+													<span className="label-text font-medium">Current CGPA</span>
 												</label>
 												<input
 													id="base-cgpa-input"
@@ -729,7 +748,7 @@ export default function ProfilePage() {
 
 											<div className="min-w-0">
 												<label htmlFor="base-credits-input" className="label">
-													<span className="label-text font-medium">Base Total Credits</span>
+													<span className="label-text font-medium">Total Credits Completed</span>
 												</label>
 												<input
 													id="base-credits-input"
@@ -1012,7 +1031,7 @@ export default function ProfilePage() {
 								<div>
 									<h2 className="card-title">Advanced: Grading Scale</h2>
 									<p className="text-sm opacity-70">
-										Customize grading thresholds only if your institution differs.
+										Customize this grading scale to match your school&apos;s exact system.
 									</p>
 								</div>
 								<ChevronDown className="w-5 h-5 opacity-70 transition-transform duration-200 group-hover:scale-110 group-open:rotate-180" />

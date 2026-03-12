@@ -20,6 +20,7 @@ import {
 	DEFAULT_CURRENT_LEVEL,
 	DEFAULT_CURRENT_SEMESTER,
 	getCachedUserAcademicBase,
+	getCachedUserCurrentAcademicContext,
 	getUserAcademicBase,
 	getUserCurrentAcademicContext,
 	getUserGradingScale,
@@ -27,7 +28,7 @@ import {
 	type AcademicBaseValues,
 } from "../lib/storage/user";
 import type { GradingScale } from "../lib/schemas/grading-scale";
-import { calculateCGPA } from "../lib/utils/gpa";
+import { calculateCGPA, isHistoricalForBase } from "../lib/utils/gpa";
 import { calculateRequiredExamScore } from "../lib/utils/grade-prediction";
 
 const SEMESTER_ORDER: Record<"First" | "Second" | "Summer", number> = {
@@ -188,8 +189,13 @@ export default function CoursesPage() {
 			}
 
 			const cachedBase = getCachedUserAcademicBase(user.id);
+			const cachedContext = getCachedUserCurrentAcademicContext(user.id);
 			if (isMounted && cachedBase) {
 				setAcademicBase(cachedBase);
+			}
+			if (isMounted) {
+				setCurrentLevel(cachedContext.currentLevel);
+				setCurrentSemester(cachedContext.currentSemester);
 			}
 
 			const [target, base, scale, currentContext] = await Promise.all([
@@ -266,7 +272,14 @@ export default function CoursesPage() {
 				formData.level,
 				formData.semester,
 			);
-			const previousCgpa = calculateCGPA(courses, academicBase, gradingScale);
+			const previousCgpa = calculateCGPA(
+				courses,
+				academicBase,
+				gradingScale,
+				undefined,
+				currentLevel,
+				currentSemester,
+			);
 
 			if (
 				formData.status === "in-progress" &&
@@ -293,7 +306,14 @@ export default function CoursesPage() {
 			const coursesAfterSave = await loadCourses();
 
 			if (targetGpa !== null) {
-				const newCgpa = calculateCGPA(coursesAfterSave, academicBase, gradingScale);
+				const newCgpa = calculateCGPA(
+					coursesAfterSave,
+					academicBase,
+					gradingScale,
+					undefined,
+					currentLevel,
+					currentSemester,
+				);
 
 				if (previousCgpa >= targetGpa && newCgpa < targetGpa) {
 					setGpaAlert(
@@ -464,12 +484,28 @@ export default function CoursesPage() {
 																			</td>
 																			<td>
 																				{course.status === "completed" ? (
-																					<span className="badge badge-success gap-1 whitespace-nowrap">
-																						{isHistoricalCourse(course.level ?? currentLevel, course.semester) && (
-																							<Lock className="w-3 h-3" />
+																					<div className="flex flex-wrap items-center gap-2">
+																						<span className="badge badge-success gap-1 whitespace-nowrap">
+																							{isHistoricalCourse(course.level ?? currentLevel, course.semester) && (
+																								<Lock className="w-3 h-3" />
+																							)}
+																							Completed
+																						</span>
+																						{isHistoricalForBase(
+																							course.level,
+																							course.semester,
+																							currentLevel,
+																							currentSemester,
+																							(academicBase?.baseTotalCredits ?? 0) > 0,
+																						) && (
+																							<span
+																								className="badge badge-outline badge-info whitespace-nowrap"
+																								title="This historical course is already included in your Quick Start base and does not change your live CGPA."
+																							>
+																								Included in Quick Start Base
+																							</span>
 																						)}
-																						Completed
-																					</span>
+																					</div>
 																				) : (
 																					<span className="badge badge-warning whitespace-nowrap">
 																						In Progress
@@ -615,6 +651,7 @@ export default function CoursesPage() {
 										type="number"
 										className="input input-bordered w-full"
 										value={formData.units}
+										onFocus={(e) => e.target.select()}
 										onChange={(e) =>
 											setFormData({
 												...formData,
@@ -636,6 +673,7 @@ export default function CoursesPage() {
 										type="number"
 										className="input input-bordered w-full"
 										value={formData.level}
+										onFocus={(e) => e.target.select()}
 										onChange={(e) => {
 											const nextLevel = Number(e.target.value);
 											setFormData((prev) => {
@@ -837,6 +875,7 @@ export default function CoursesPage() {
 										type="number"
 										className="input input-bordered w-full"
 										value={formData.year}
+										onFocus={(e) => e.target.select()}
 										onChange={(e) =>
 											setFormData({
 												...formData,

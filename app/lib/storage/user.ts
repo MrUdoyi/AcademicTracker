@@ -18,9 +18,14 @@ export const DEFAULT_CURRENT_SEMESTER: "First" | "Second" | "Summer" = "First";
 export const DEFAULT_CGPA_SCALE: CgpaScale = 5;
 const SUPPORTED_SCALE_GRADES = new Set(["A", "B", "C", "D", "E", "F"]);
 const ACADEMIC_BASE_CACHE_KEY_PREFIX = "apt_academic_base_cache";
+const CURRENT_ACADEMIC_CONTEXT_CACHE_KEY_PREFIX = "apt_current_academic_context_cache";
 
 function getAcademicBaseCacheKey(userId: string): string {
 	return `${ACADEMIC_BASE_CACHE_KEY_PREFIX}:${userId}`;
+}
+
+function getCurrentAcademicContextCacheKey(userId: string): string {
+	return `${CURRENT_ACADEMIC_CONTEXT_CACHE_KEY_PREFIX}:${userId}`;
 }
 
 function saveAcademicBaseCache(userId: string, base: AcademicBaseValues | null): void {
@@ -29,6 +34,33 @@ function saveAcademicBaseCache(userId: string, base: AcademicBaseValues | null):
 
 function clearAcademicBaseCache(userId: string): void {
 	storage.remove(getAcademicBaseCacheKey(userId));
+}
+
+function saveCurrentAcademicContextCache(
+	userId: string,
+	context: CurrentAcademicContext,
+): void {
+	storage.set(getCurrentAcademicContextCacheKey(userId), context);
+}
+
+export function getCachedUserCurrentAcademicContext(
+	userId: string,
+): CurrentAcademicContext {
+	const cached = storage.get<CurrentAcademicContext | null>(
+		getCurrentAcademicContextCacheKey(userId),
+	);
+
+	if (!cached) {
+		return {
+			currentLevel: DEFAULT_CURRENT_LEVEL,
+			currentSemester: DEFAULT_CURRENT_SEMESTER,
+		};
+	}
+
+	return {
+		currentLevel: normalizeCurrentLevel(cached.currentLevel),
+		currentSemester: normalizeCurrentSemester(cached.currentSemester),
+	};
 }
 
 export function getCachedUserAcademicBase(userId: string): AcademicBaseValues | null {
@@ -315,6 +347,7 @@ export async function getCurrentUser(): Promise<User | null> {
 /**
  * Set current user (after login)
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function setCurrentUser(_user: User): void {
 	// Session is managed by Supabase auth.
 }
@@ -593,10 +626,13 @@ export async function getUserCurrentAcademicContext(
 		};
 	}
 
-	return {
+	const context = {
 		currentLevel: normalizeCurrentLevel(data.current_level),
 		currentSemester: normalizeCurrentSemester(data.current_semester),
 	};
+	saveCurrentAcademicContextCache(userId, context);
+
+	return context;
 }
 
 export async function setUserCurrentAcademicContext(
@@ -619,6 +655,11 @@ export async function setUserCurrentAcademicContext(
 	if (error) {
 		throw normalizeAuthError(new Error(error.message));
 	}
+
+	saveCurrentAcademicContextCache(userId, {
+		currentLevel: normalizedLevel,
+		currentSemester: normalizedSemester,
+	});
 }
 
 export async function getUserHasSeenOnboarding(userId: string): Promise<boolean> {

@@ -313,6 +313,7 @@ export function GradingScaleConfigurator({
 							max={selectedCgpaScale}
 							step={0.5}
 							value={item.points}
+							onFocus={(e) => e.target.select()}
 							onChange={(event) =>
 								handleRowEdit(index, "points", event.target.value)
 							}
@@ -324,6 +325,7 @@ export function GradingScaleConfigurator({
 							max={100}
 							step={1}
 							value={item.minScore}
+							onFocus={(e) => e.target.select()}
 							onChange={(event) =>
 								handleRowEdit(index, "minScore", event.target.value)
 							}

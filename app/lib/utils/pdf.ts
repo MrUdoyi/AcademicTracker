@@ -1,8 +1,14 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { Course } from "../schemas/course";
-import type { User } from "../schemas/user";
-import { DEFAULT_TOTAL_DEGREE_CREDITS } from "../storage/user";
+import type { GradingScale } from "../schemas/grading-scale";
+import type { CgpaScale, User } from "../schemas/user";
+import {
+	DEFAULT_CURRENT_LEVEL,
+	DEFAULT_CURRENT_SEMESTER,
+	DEFAULT_TOTAL_DEGREE_CREDITS,
+	type AcademicBaseValues,
+} from "../storage/user";
 import {
 	calculateCGPA,
 	calculateDegreeProgress,
@@ -10,12 +16,18 @@ import {
 	getSemesterPerformance,
 	getTotalCoursesCompleted,
 	getTotalCredits,
+	isHistoricalForBase,
 } from "./gpa";
 
 interface PDFOptions {
 	includeInsights?: boolean;
 	includeCharts?: boolean;
 	totalDegreeCredits?: number;
+	base?: AcademicBaseValues | null;
+	gradingScale?: GradingScale | null;
+	cgpaScale?: CgpaScale;
+	currentLevel?: number;
+	currentSemester?: Course["semester"];
 }
 
 /**
@@ -27,7 +39,17 @@ export function generateTranscriptPDF(
 	options: PDFOptions = {},
 ): jsPDF {
 	const doc = new jsPDF();
-	const { includeInsights = true, totalDegreeCredits = DEFAULT_TOTAL_DEGREE_CREDITS } = options;
+	const {
+		includeInsights = true,
+		totalDegreeCredits = DEFAULT_TOTAL_DEGREE_CREDITS,
+		base = null,
+		gradingScale = null,
+		cgpaScale = user.cgpaScale ?? 5,
+		currentLevel = DEFAULT_CURRENT_LEVEL,
+		currentSemester = DEFAULT_CURRENT_SEMESTER,
+	} = options;
+	const hasValidBase =
+		(base?.baseTotalCredits ?? 0) > 0 && (base?.baseCgpa ?? -1) >= 0;
 
 	const pageWidth = doc.internal.pageSize.getWidth();
 	const pageHeight = doc.internal.pageSize.getHeight();
@@ -73,8 +95,20 @@ export function generateTranscriptPDF(
 	yPosition += 15;
 
 	// Academic Summary
-	const cgpa = calculateCGPA(courses);
-	const totalCredits = getTotalCredits(courses);
+	const cgpa = calculateCGPA(
+		courses,
+		base,
+		gradingScale,
+		cgpaScale,
+		currentLevel,
+		currentSemester,
+	);
+	const totalCredits = getTotalCredits(
+		courses,
+		base?.baseTotalCredits || 0,
+		currentLevel,
+		currentSemester,
+	);
 	const completedCourses = getTotalCoursesCompleted(courses);
 	const degreeProgress = calculateDegreeProgress(totalCredits, totalDegreeCredits);
 
@@ -85,7 +119,11 @@ export function generateTranscriptPDF(
 	yPosition += 8;
 	doc.setFontSize(10);
 	doc.setFont("helvetica", "normal");
-	doc.text(`Cumulative GPA (CGPA): ${cgpa.toFixed(2)} / 5.0`, 14, yPosition);
+	doc.text(
+		`Cumulative GPA (CGPA): ${cgpa.toFixed(2)} / ${cgpaScale.toFixed(1)}`,
+		14,
+		yPosition,
+	);
 	yPosition += 6;
 	doc.text(`Total Credits Completed: ${totalCredits} / ${totalDegreeCredits}`, 14, yPosition);
 	yPosition += 6;
@@ -96,7 +134,7 @@ export function generateTranscriptPDF(
 	yPosition += 15;
 
 	// Semester Performance
-	const semesterPerformance = getSemesterPerformance(courses);
+	const semesterPerformance = getSemesterPerformance(courses, gradingScale, cgpaScale);
 
 	if (semesterPerformance.length > 0) {
 		doc.setFontSize(14);
@@ -178,7 +216,17 @@ export function generateTranscriptPDF(
 					course.title,
 					course.units.toString(),
 					course.grade || "-",
-					course.status === "completed" ? "Completed" : "In Progress",
+					course.status === "completed"
+						? isHistoricalForBase(
+								course.level,
+								course.semester,
+								currentLevel,
+								currentSemester,
+								hasValidBase,
+							)
+							? "Completed\nIncluded in Quick Start Base"
+							: "Completed"
+						: "In Progress",
 				]),
 				theme: "grid",
 				headStyles: { fillColor: [87, 13, 248], fontSize: 9 },
@@ -193,7 +241,14 @@ export function generateTranscriptPDF(
 
 	// Academic Insights
 	if (includeInsights && courses.length > 0) {
-		const insights = generateInsights(courses);
+		const insights = generateInsights(
+			courses,
+			base,
+			gradingScale,
+			cgpaScale,
+			currentLevel,
+			currentSemester,
+		);
 
 		if (insights.length > 0) {
 			// Check if we need a new page

@@ -90,6 +90,38 @@ describe("PDF Generation", () => {
 		expect(pdf.getNumberOfPages()).toBeGreaterThan(0);
 	});
 
+	test("generateTranscriptPDF supports Quick Start base without double-counting historical courses", () => {
+		const pdf = generateTranscriptPDF(
+			mockUser,
+			[
+				{
+					...mockCourses[0],
+					level: 100,
+					semester: "First",
+					year: 2023,
+				},
+				{
+					...mockCourses[1],
+					level: 200,
+					semester: "Second",
+					year: 2024,
+				},
+			],
+			{
+				includeInsights: true,
+				base: {
+					baseCgpa: 4,
+					baseTotalCredits: 40,
+				},
+				currentLevel: 200,
+				currentSemester: "Second",
+			},
+		);
+
+		expect(pdf).toBeDefined();
+		expect(pdf.getNumberOfPages()).toBeGreaterThan(0);
+	});
+
 	test("generateTranscriptPDF excludes insights when disabled", () => {
 		const pdf = generateTranscriptPDF(mockUser, mockCourses, {
 			includeInsights: false,

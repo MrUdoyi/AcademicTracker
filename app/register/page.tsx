@@ -2,6 +2,8 @@
 
 import {
 	AlertCircle,
+	Eye,
+	EyeOff,
 	GraduationCap,
 	Lock,
 	Mail,
@@ -20,6 +22,8 @@ export default function RegisterPage() {
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
+	const [showPassword, setShowPassword] = useState(false);
+	const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [fieldErrors, setFieldErrors] = useState<{
@@ -187,18 +191,26 @@ export default function RegisterPage() {
 								<Lock className="w-4 h-4 opacity-70" />
 								<input
 									id="password-input"
-									type="password"
-									className="grow"
-									placeholder="Create a password"
-									value={password}
-									onChange={(e) => setPassword(e.target.value)}
-									required
-									autoComplete="new-password"
-									aria-invalid={fieldErrors.password ? "true" : "false"}
-									aria-describedby={
-										fieldErrors.password ? "password-error" : undefined
-									}
-								/>
+								type={showPassword ? "text" : "password"}
+								className="grow"
+								placeholder="Create a password"
+								value={password}
+								onChange={(e) => setPassword(e.target.value)}
+								required
+								autoComplete="new-password"
+								aria-invalid={fieldErrors.password ? "true" : "false"}
+								aria-describedby={
+									fieldErrors.password ? "password-error" : undefined
+								}
+							/>
+							<button
+								type="button"
+								className="opacity-60 hover:opacity-100"
+								onClick={() => setShowPassword((v) => !v)}
+								aria-label={showPassword ? "Hide password" : "Show password"}
+							>
+								{showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+							</button>
 							</label>
 							{fieldErrors.password && (
 								<span className="label text-error mt-1" id="password-error">
@@ -217,20 +229,28 @@ export default function RegisterPage() {
 								<Lock className="w-4 h-4 opacity-70" />
 								<input
 									id="confirm-password-input"
-									type="password"
-									className="grow"
-									placeholder="Confirm your password"
-									value={confirmPassword}
-									onChange={(e) => setConfirmPassword(e.target.value)}
-									required
-									autoComplete="new-password"
-									aria-invalid={fieldErrors.confirmPassword ? "true" : "false"}
-									aria-describedby={
-										fieldErrors.confirmPassword
-											? "confirm-password-error"
-											: undefined
-									}
-								/>
+								type={showConfirmPassword ? "text" : "password"}
+								className="grow"
+								placeholder="Confirm your password"
+								value={confirmPassword}
+								onChange={(e) => setConfirmPassword(e.target.value)}
+								required
+								autoComplete="new-password"
+								aria-invalid={fieldErrors.confirmPassword ? "true" : "false"}
+								aria-describedby={
+									fieldErrors.confirmPassword
+										? "confirm-password-error"
+										: undefined
+								}
+							/>
+							<button
+								type="button"
+								className="opacity-60 hover:opacity-100"
+								onClick={() => setShowConfirmPassword((v) => !v)}
+								aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+							>
+								{showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+							</button>
 							</label>
 							{fieldErrors.confirmPassword && (
 								<span

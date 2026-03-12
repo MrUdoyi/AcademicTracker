@@ -24,8 +24,10 @@ import type { GradingScale } from "../lib/schemas/grading-scale";
 import { getCachedUserCourses, getUserCourses, updateCourse } from "../lib/storage/course";
 import {
 	DEFAULT_CURRENT_LEVEL,
+	DEFAULT_CURRENT_SEMESTER,
 	DEFAULT_TOTAL_DEGREE_CREDITS,
 	getCachedUserAcademicBase,
+	getCachedUserCurrentAcademicContext,
 	getUserAcademicBase,
 	getUserCurrentAcademicContext,
 	getUserGradingScale,
@@ -93,6 +95,9 @@ export default function DashboardPage() {
 		DEFAULT_TOTAL_DEGREE_CREDITS,
 	);
 	const [currentLevel, setCurrentLevel] = useState<number>(DEFAULT_CURRENT_LEVEL);
+	const [currentSemester, setCurrentSemester] = useState<"First" | "Second" | "Summer">(
+		DEFAULT_CURRENT_SEMESTER,
+	);
 	const [targetCgpa, setTargetCgpa] = useState<number | null>(null);
 	const [selectedSemester, setSelectedSemester] = useState("all");
 	const [selectedCourse, setSelectedCourse] = useState("all");
@@ -131,6 +136,7 @@ export default function DashboardPage() {
 					setGradingScale(null);
 					setTotalDegreeCredits(DEFAULT_TOTAL_DEGREE_CREDITS);
 					setCurrentLevel(DEFAULT_CURRENT_LEVEL);
+					setCurrentSemester(DEFAULT_CURRENT_SEMESTER);
 					setTargetCgpa(null);
 				}
 				return;
@@ -138,6 +144,7 @@ export default function DashboardPage() {
 
 			const cachedCourses = getCachedUserCourses(user.id);
 			const cachedBase = getCachedUserAcademicBase(user.id);
+			const cachedContext = getCachedUserCurrentAcademicContext(user.id);
 			if (isMounted) {
 				if (cachedCourses.length > 0) {
 					setCourses(cachedCourses);
@@ -145,6 +152,8 @@ export default function DashboardPage() {
 				if (cachedBase) {
 					setAcademicBase(cachedBase);
 				}
+				setCurrentLevel(cachedContext.currentLevel);
+				setCurrentSemester(cachedContext.currentSemester);
 			}
 
 			const [
@@ -169,6 +178,7 @@ export default function DashboardPage() {
 				setTotalDegreeCredits(degreeCredits);
 				setTargetCgpa(savedTargetCgpa);
 				setCurrentLevel(currentContext.currentLevel);
+				setCurrentSemester(currentContext.currentSemester);
 			}
 		};
 
@@ -179,8 +189,20 @@ export default function DashboardPage() {
 		};
 	}, [user]);
 
-	const cgpa = calculateCGPA(courses, academicBase, gradingScale);
-	const totalCredits = getTotalCredits(courses, academicBase?.baseTotalCredits || 0);
+	const cgpa = calculateCGPA(
+		courses,
+		academicBase,
+		gradingScale,
+		undefined,
+		currentLevel,
+		currentSemester,
+	);
+	const totalCredits = getTotalCredits(
+		courses,
+		academicBase?.baseTotalCredits || 0,
+		currentLevel,
+		currentSemester,
+	);
 	const hasSavedBaseCgpa =
 		academicBase?.baseCgpa !== undefined && academicBase?.baseCgpa !== null;
 	const isEntryLevelStudent = currentLevel === DEFAULT_CURRENT_LEVEL;
@@ -267,6 +289,11 @@ export default function DashboardPage() {
 			downloadTranscript(user, courses, {
 				includeInsights: true,
 				totalDegreeCredits,
+				base: academicBase,
+				gradingScale,
+				cgpaScale: userCgpaScale,
+				currentLevel,
+				currentSemester,
 			});
 		} catch (error) {
 			console.error("Failed to generate PDF:", error);
@@ -328,7 +355,14 @@ export default function DashboardPage() {
 							</button>
 							<h2 className="card-title">Start Here</h2>
 							<p className="text-sm opacity-70">
-								You are in 100 Level. Skip Higher-Level Quick Start and add your courses directly.
+							If you are in 100 Level, start adding your courses below. If you are in 200 Level or higher, tap{" "}
+							<Link
+								href="/profile#quick-start-section"
+								className="link link-primary font-medium"
+							>
+								Higher-Level Quick Start
+							</Link>{" "}
+							to set up your current CGPA.
 							</p>
 							<div className="card-actions justify-start">
 								<Link href="/courses" className="btn btn-sm btn-primary">

@@ -22,11 +22,15 @@ import { useInsightsSyncStatus } from "../lib/hooks/use-insights-sync-status";
 import { getCachedUserCourses, getUserCourses } from "../lib/storage/course";
 import { enqueuePendingAction } from "../lib/storage/queue";
 import {
+	DEFAULT_CURRENT_SEMESTER,
 	DEFAULT_TOTAL_DEGREE_CREDITS,
 	getCachedUserAcademicBase,
+	getCachedUserCurrentAcademicContext,
 	getUserAcademicBase,
 	getUserGradingScale,
 	getUserTotalDegreeCredits,
+	DEFAULT_CURRENT_LEVEL,
+	getUserCurrentAcademicContext,
 	type AcademicBaseValues,
 } from "../lib/storage/user";
 import type { GradingScale } from "../lib/schemas/grading-scale";
@@ -165,6 +169,10 @@ export default function AnalysisPage() {
 	const [selectedPerformance, setSelectedPerformance] =
 		useState<PerformanceLevel>("all");
 	const [courses, setCourses] = useState<Array<Awaited<ReturnType<typeof getUserCourses>>[number]>>([]);
+	const [currentLevel, setCurrentLevel] = useState<number>(DEFAULT_CURRENT_LEVEL);
+	const [currentSemester, setCurrentSemester] = useState<"First" | "Second" | "Summer">(
+		DEFAULT_CURRENT_SEMESTER,
+	);
 
 	useEffect(() => {
 		if (!loading && !user) {
@@ -182,12 +190,15 @@ export default function AnalysisPage() {
 					setAcademicBase(null);
 					setGradingScale(null);
 					setTotalDegreeCredits(DEFAULT_TOTAL_DEGREE_CREDITS);
+					setCurrentLevel(DEFAULT_CURRENT_LEVEL);
+					setCurrentSemester(DEFAULT_CURRENT_SEMESTER);
 				}
 				return;
 			}
 
 			const cachedCourses = getCachedUserCourses(user.id);
 			const cachedBase = getCachedUserAcademicBase(user.id);
+			const cachedContext = getCachedUserCurrentAcademicContext(user.id);
 			if (isMounted) {
 				if (cachedCourses.length > 0) {
 					setCourses(cachedCourses);
@@ -195,19 +206,24 @@ export default function AnalysisPage() {
 				if (cachedBase) {
 					setAcademicBase(cachedBase);
 				}
+				setCurrentLevel(cachedContext.currentLevel);
+				setCurrentSemester(cachedContext.currentSemester);
 			}
 
-			const [result, base, scale, degreeCredits] = await Promise.all([
+			const [result, base, scale, degreeCredits, currentContext] = await Promise.all([
 				getUserCourses(user.id),
 				getUserAcademicBase(user.id),
 				getUserGradingScale(user.id),
 				getUserTotalDegreeCredits(user.id),
+				getUserCurrentAcademicContext(user.id),
 			]);
 			if (isMounted) {
 				setCourses(result);
 				setAcademicBase(base);
 				setGradingScale(scale);
 				setTotalDegreeCredits(degreeCredits);
+				setCurrentLevel(currentContext.currentLevel);
+				setCurrentSemester(currentContext.currentSemester);
 			}
 		};
 
@@ -298,7 +314,7 @@ export default function AnalysisPage() {
 
 				return semesterMatch && courseMatch && performanceMatch;
 			}),
-		[courses, gradingScale, selectedSemester, selectedCourse, selectedPerformance],
+		[courses, selectedSemester, selectedCourse, selectedPerformance],
 	);
 
 	const filteredSemesterPerformance = useMemo(
@@ -315,14 +331,29 @@ export default function AnalysisPage() {
 		[filteredSemesterPerformance],
 	);
 
-	const cgpa = calculateCGPA(filteredCourses, academicBase, gradingScale);
+	const cgpa = calculateCGPA(
+		filteredCourses,
+		academicBase,
+		gradingScale,
+		undefined,
+		currentLevel,
+		currentSemester,
+	);
 	const totalCredits = getTotalCredits(
 		filteredCourses,
 		academicBase?.baseTotalCredits || 0,
+		currentLevel,
+		currentSemester,
 	);
 	const completedCourses = getTotalCoursesCompleted(filteredCourses);
 	const degreeProgress = calculateDegreeProgress(totalCredits, totalDegreeCredits);
-	const insights = generateStudyTips(filteredCourses, academicBase, gradingScale);
+	const insights = generateStudyTips(
+		filteredCourses,
+		academicBase,
+		gradingScale,
+		currentLevel,
+		currentSemester,
+	);
 	const summaryReportItems = useMemo<SummaryItem[]>(() => {
 		const reportItems: SummaryItem[] = [];
 		const inProgressCount = filteredCourses.filter((c) => c.status === "in-progress").length;
@@ -423,6 +454,11 @@ export default function AnalysisPage() {
 			downloadTranscript(user, courses, {
 				includeInsights: true,
 				totalDegreeCredits,
+				base: academicBase,
+				gradingScale,
+				cgpaScale: user.cgpaScale ?? 5,
+				currentLevel,
+				currentSemester,
 			});
 		} catch (error) {
 			console.error("Failed to generate PDF:", error);

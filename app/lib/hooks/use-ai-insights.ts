@@ -9,6 +9,7 @@ import {
 	getUserGradingScale,
 	getUserTargetGpa,
 	getUserTotalDegreeCredits,
+	getUserCurrentAcademicContext,
 } from "../storage/user";
 import { generatePersonalizedInsights } from "../utils/recommendations";
 import {
@@ -56,15 +57,30 @@ export function useAiInsights(userId: string | null): UseAiInsightsReturn {
 		setError(null);
 
 		try {
-			const [courses, base, gradingScale, totalDegreeCredits, targetCGPA] = await Promise.all([
+			const [courses, base, gradingScale, totalDegreeCredits, targetCGPA, currentContext] = await Promise.all([
 				getUserCourses(userId),
 				getUserAcademicBase(userId),
 				getUserGradingScale(userId),
 				getUserTotalDegreeCredits(userId),
 				getUserTargetGpa(userId),
+				getUserCurrentAcademicContext(userId),
 			]);
-			const cgpa = calculateCGPA(courses, base, gradingScale);
-			const totalCredits = getTotalCredits(courses, base?.baseTotalCredits || 0);
+			const currentLevel = currentContext.currentLevel;
+			const currentSemester = currentContext.currentSemester;
+			const cgpa = calculateCGPA(
+				courses,
+				base,
+				gradingScale,
+				undefined,
+				currentLevel,
+				currentSemester,
+			);
+			const totalCredits = getTotalCredits(
+				courses,
+				base?.baseTotalCredits || 0,
+				currentLevel,
+				currentSemester,
+			);
 			const completedCourses = getTotalCoursesCompleted(courses);
 			const inProgressCourses = courses.filter(
 				(course) => course.status === "in-progress",

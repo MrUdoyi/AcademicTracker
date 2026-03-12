@@ -13,6 +13,7 @@ import {
 	getTotalCoursesCompleted,
 	getTotalCredits,
 	gradeToPoints,
+	isHistoricalForBase,
 } from "../utils/gpa";
 
 const mockCourses: Course[] = [
@@ -149,6 +150,110 @@ describe("calculateCGPA", () => {
 		expect(cgpa).toBeGreaterThan(0);
 		expect(cgpa).toBeLessThanOrEqual(5.0);
 	});
+
+	test("ignores historical courses already captured in Quick Start base", () => {
+		const coursesWithHistory: Course[] = [
+			{
+				id: "hist-1",
+				userId: "user1",
+				courseCode: "GST101",
+				title: "Use of English",
+				units: 2,
+				level: 100,
+				grade: "A",
+				semester: "First",
+				year: 2023,
+				status: "completed",
+				createdAt: "2023-01-01",
+				updatedAt: "2023-01-01",
+			},
+			{
+				id: "hist-2",
+				userId: "user1",
+				courseCode: "MTH102",
+				title: "Algebra",
+				units: 3,
+				level: 100,
+				grade: "B",
+				semester: "Second",
+				year: 2023,
+				status: "completed",
+				createdAt: "2023-01-01",
+				updatedAt: "2023-01-01",
+			},
+			{
+				id: "new-1",
+				userId: "user1",
+				courseCode: "CSC201",
+				title: "Programming II",
+				units: 3,
+				level: 200,
+				grade: "A",
+				semester: "Second",
+				year: 2024,
+				status: "completed",
+				createdAt: "2024-01-01",
+				updatedAt: "2024-01-01",
+			},
+		];
+
+		const cgpa = calculateCGPA(
+			coursesWithHistory,
+			{ baseCgpa: 4.0, baseTotalCredits: 40 },
+			undefined,
+			5,
+			200,
+			"Second",
+		);
+
+		// Historical 100-level courses must be ignored because the base already covers them.
+		// Only the new 200-level course should be added on top of the base.
+		expect(cgpa).toBeCloseTo((4.0 * 40 + 5 * 3) / 43, 5);
+	});
+
+	test("treats earlier semester in same level as historical when base exists", () => {
+		const sameLevelCourses: Course[] = [
+			{
+				id: "same-level-old",
+				userId: "user1",
+				courseCode: "BIO201",
+				title: "Biology I",
+				units: 3,
+				level: 200,
+				grade: "B",
+				semester: "First",
+				year: 2024,
+				status: "completed",
+				createdAt: "2024-01-01",
+				updatedAt: "2024-01-01",
+			},
+			{
+				id: "same-level-new",
+				userId: "user1",
+				courseCode: "BIO202",
+				title: "Biology II",
+				units: 3,
+				level: 200,
+				grade: "A",
+				semester: "Second",
+				year: 2024,
+				status: "completed",
+				createdAt: "2024-01-01",
+				updatedAt: "2024-01-01",
+			},
+		];
+
+		const cgpa = calculateCGPA(
+			sameLevelCourses,
+			{ baseCgpa: 3.5, baseTotalCredits: 20 },
+			undefined,
+			5,
+			200,
+			"Second",
+		);
+
+		expect(cgpa).toBeCloseTo((3.5 * 20 + 5 * 3) / 23, 5);
+	});
 });
 
 describe("getTotalCredits", () => {
@@ -159,6 +264,59 @@ describe("getTotalCredits", () => {
 
 	test("returns 0 for empty array", () => {
 		expect(getTotalCredits([])).toBe(0);
+	});
+
+	test("ignores historical course credits already covered by Quick Start base", () => {
+		const total = getTotalCredits(
+			[
+				{
+					id: "1",
+					userId: "user1",
+					courseCode: "PHY101",
+					title: "Physics",
+					units: 3,
+					level: 100,
+					grade: "A",
+					semester: "First",
+					year: 2023,
+					status: "completed",
+					createdAt: "2023-01-01",
+					updatedAt: "2023-01-01",
+				},
+				{
+					id: "2",
+					userId: "user1",
+					courseCode: "PHY201",
+					title: "Advanced Physics",
+					units: 4,
+					level: 200,
+					grade: "B",
+					semester: "Second",
+					year: 2024,
+					status: "completed",
+					createdAt: "2024-01-01",
+					updatedAt: "2024-01-01",
+				},
+			],
+			30,
+			200,
+			"Second",
+		);
+
+		expect(total).toBe(34);
+	});
+});
+
+describe("isHistoricalForBase", () => {
+	test("returns true for lower level or earlier semester when base exists", () => {
+		expect(isHistoricalForBase(100, "First", 200, "First", true)).toBe(true);
+		expect(isHistoricalForBase(200, "First", 200, "Second", true)).toBe(true);
+		expect(isHistoricalForBase(200, "Second", 200, "Second", true)).toBe(false);
+		expect(isHistoricalForBase(300, "First", 200, "Second", true)).toBe(false);
+	});
+
+	test("returns false when no valid base exists", () => {
+		expect(isHistoricalForBase(100, "First", 200, "Second", false)).toBe(false);
 	});
 });
 
