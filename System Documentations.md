@@ -2,23 +2,9 @@
 
 ## Document Information
 - **Project Name:** Personalized Academic Progress Tracker (PAPT)
-- **Group:** Arid Stone Group - Group C
+- **Group:** Group 57
 - **Version:** 1.0
-- **Date:** November 2025
-
----
-
-## Table of Contents
-1. [Executive Summary](#1-executive-summary)
-2. [System Architecture](#2-system-architecture)
-3. [Database Design](#3-database-design)
-4. [API Specifications](#4-api-specifications)
-5. [AI Module Design](#5-ai-module-design)
-6. [User Interface Design](#6-user-interface-design)
-7. [Security Implementation](#7-security-implementation)
-8. [MVP Scope & Implementation Plan](#8-mvp-scope--implementation-plan)
-9. [Deployment Strategy](#9-deployment-strategy)
-10. [Testing Strategy](#10-testing-strategy)
+- **Date:** Jan 2026
 
 ---
 
@@ -644,21 +630,20 @@ Format your response as JSON with this structure:
 ### 5.1 Why Gemini Instead of Custom ML?
 
 **Advantages:**
-- ✅ No model training required
-- ✅ No Python/Flask microservice needed
-- ✅ Sophisticated reasoning out-of-the-box
-- ✅ Easy to iterate on prompts
-- ✅ Generous free tier (60 requests/minute)
-- ✅ Can handle complex academic analysis
-- ✅ JSON mode for structured responses
+- No model training required
+- No Python/Flask microservice needed
+- Sophisticated reasoning out-of-the-box
+- Generous free tier (60 requests/minute)
+- Can handle complex academic analysis
+- JSON mode for structured responses
 
 **What we avoid:**
-- ❌ Setting up Python environment
-- ❌ Training ML models
-- ❌ Managing separate AI service
-- ❌ Complex deployment pipeline
-- ❌ Data preprocessing pipelines
-- ❌ Model versioning and updates
+- Setting up Python environment
+- Training ML models
+- Managing separate AI service
+- Complex deployment pipeline
+- Data preprocessing pipelines
+- Model versioning and updates
 
 ### 5.2 Gemini Integration
 
@@ -891,18 +876,18 @@ Once MVP is working, you can:
 ### 7.1 Authentication & Authorization (Supabase Handles It!)
 
 **What Supabase provides out-of-the-box:**
-- ✅ Secure password hashing (bcrypt)
-- ✅ JWT token generation and validation
-- ✅ Session management
-- ✅ Email verification
-- ✅ Password reset flows
-- ✅ Row Level Security (RLS) policies
+- Secure password hashing (bcrypt)
+- JWT token generation and validation
+- Session management
+- Email verification
+- Password reset flows
+- Row Level Security (RLS) policies
 
 **What you DON'T need to implement:**
-- ❌ Custom JWT logic
-- ❌ Password hashing
-- ❌ Session storage
-- ❌ Token refresh mechanisms
+- Custom JWT logic
+- Password hashing
+- Session storage
+- Token refresh mechanisms
 
 ### 7.2 Row Level Security (RLS)
 
@@ -985,15 +970,14 @@ app.post('/api/courses', async ({ body }) => {
 ### 8.2 What We're NOT Building (Post-MVP)
 
 **Features to skip for now:**
-- ❌ Admin panel
-- ❌ Audit logs
-- ❌ Email notifications
-- ❌ Course recommendations
-- ❌ CGPA simulator (what-if scenarios)
-- ❌ Peer comparisons
-- ❌ Export to PDF
-- ❌ Advanced analytics
-- ❌ Course difficulty ratings
+- Admin panel
+- Audit logs
+- Email notifications
+- Course recommendations
+- CGPA simulator (what-if scenarios)
+- Peer comparisons
+- Advanced analytics
+- Course difficulty ratings
 
 ### 8.4 MVP Development Approach
 
@@ -1028,7 +1012,7 @@ app.post('/api/courses', async ({ body }) => {
 - Supabase (handles everything)
 
 **Deployment:**
-- Vercel or Cloudflare Pages (everything in one place)
+- Vercel
 
 ---
 
@@ -1490,14 +1474,14 @@ git push origin main # Auto-deploy via GitHub
 This simplified documentation provides everything your team needs to build a minimal but functional Personalized Academic Progress Tracker (PAPT) in 5 weeks.
 
 **Key Simplifications Made:**
-1. ✅ Supabase replaces custom auth + database setup
-2. ✅ Elysia.js replaces Express (faster, cleaner)
-3. ✅ Gemini API replaces custom ML/Python service
-4. ✅ Single deployment platform (Vercel/Cloudflare)
-5. ✅ Minimal database schema (2 tables only)
-6. ✅ No admin panel for MVP
-7. ✅ No audit logs for MVP
-8. ✅ Focus on core features only
+1. Supabase replaces custom auth + database setup
+2. Elysia.js replaces Express (faster, cleaner)
+3. Gemini API replaces custom ML/Python service
+4. Single deployment platform (Vercel/Cloudflare)
+5. Minimal database schema (2 tables only)
+6. No admin panel for MVP
+7. No audit logs for MVP
+8. Focus on core features only
 
 
 **Next Immediate Steps:**
@@ -2105,12 +2089,6 @@ This System Documentation provides a comprehensive foundation for the Personaliz
 - [React Documentation](https://react.dev/)
 - [PostgreSQL Documentation](https://www.postgresql.org/docs/)
 - [JWT Best Practices](https://tools.ietf.org/html/rfc8725)
-
-### 16.3 Project Information
-- **Project Lead:** Okeowo Ameenat
-- **Technical Lead:** Okorocha Conrad
-- **Repository:** https://github.com/BU-SENG/foss-project-arid-stone
-- **Group:** Arid Stone Group - Group C
 
 ---
 
