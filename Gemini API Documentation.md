@@ -1,7 +1,7 @@
 # Gemini API Documentation
 
 
-This is our Gemini AI integration for the academic progress tracker. It allows our app to use Google's Gemini AI to generate text responses.
+This is our Gemini AI integration for the Personalized Academic Progress Tracker (PAPT). It allows our app to use Google's Gemini AI to generate text responses.
 
 ## Setup
 

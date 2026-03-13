@@ -1,7 +1,9 @@
 {
-	"name": "foss-project-arid-stone",
+	"name": "papt",
 	"version": "0.1.0",
 	"private": true,
+	"description": "Personalized Academic Progress Tracker (PAPT) helps students monitor CGPA, analyze progress, and receive AI-powered academic insights.",
+	"license": "UNLICENSED",
 	"scripts": {
 		"dev": "next dev",
 		"build": "next build",

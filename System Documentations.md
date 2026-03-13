@@ -1,7 +1,7 @@
-# Academic Progress Tracker - System Documentation
+# Personalized Academic Progress Tracker (PAPT) - System Documentation
 
 ## Document Information
-- **Project Name:** Academic Progress Tracker
+- **Project Name:** Personalized Academic Progress Tracker (PAPT)
 - **Group:** Arid Stone Group - Group C
 - **Version:** 1.0
 - **Date:** November 2025
@@ -24,7 +24,7 @@
 
 ## 1. Executive Summary
 
-The Academic Progress Tracker is a web-based application designed to help university students monitor, analyze, and optimize their academic performance. The system provides automated CGPA calculation, progress visualization, and AI-powered insights to help students make informed decisions about their academic journey.
+The Personalized Academic Progress Tracker (PAPT) is a web-based application designed to help university students monitor, analyze, and optimize their academic performance. The system provides automated CGPA calculation, progress visualization, and AI-powered insights to help students make informed decisions about their academic journey.
 
 ### 1.1 Core Features
 - User authentication and profile management
@@ -1135,7 +1135,7 @@ vercel
 npm install -g wrangler
 cd frontend
 npm run build
-wrangler pages deploy build --project-name=apt-frontend
+wrangler pages deploy build --project-name=papt-frontend
 ```
 
 **Backend (Cloudflare Workers):**
@@ -1487,7 +1487,7 @@ git push origin main # Auto-deploy via GitHub
 
 ## 15. Conclusion
 
-This simplified documentation provides everything your team needs to build a minimal but functional Academic Progress Tracker in 5 weeks.
+This simplified documentation provides everything your team needs to build a minimal but functional Personalized Academic Progress Tracker (PAPT) in 5 weeks.
 
 **Key Simplifications Made:**
 1. ✅ Supabase replaces custom auth + database setup
@@ -1799,14 +1799,14 @@ REACT_APP_API_URL=http://localhost:5000/api
 # render.yaml
 services:
   - type: web
-    name: apt-backend
+    name: papt-backend
     env: node
     buildCommand: npm install
     startCommand: npm start
     envVars:
       - key: DATABASE_URL
         fromDatabase:
-          name: apt-db
+          name: papt-db
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
@@ -1822,7 +1822,7 @@ services:
   "outputDirectory": "build",
   "framework": "create-react-app",
   "env": {
-    "REACT_APP_API_URL": "https://apt-backend.onrender.com/api"
+    "REACT_APP_API_URL": "https://papt-backend.onrender.com/api"
   }
 }
 ```
@@ -2072,7 +2072,7 @@ describe('Course Management Flow', () => {
 
 ## 15. Conclusion
 
-This System Documentation provides a comprehensive foundation for the Academic Progress Tracker project. The modular architecture, clear API specifications, and detailed implementation plan ensure that the team can build a robust, scalable, and user-friendly application.
+This System Documentation provides a comprehensive foundation for the Personalized Academic Progress Tracker (PAPT) project. The modular architecture, clear API specifications, and detailed implementation plan ensure that the team can build a robust, scalable, and user-friendly application.
 
 **Key Takeaways:**
 1. Focus on MVP features first (authentication, course management, CGPA calculation, basic AI)

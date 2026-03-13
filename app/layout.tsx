@@ -2,13 +2,14 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-	title: "Academic Progress Tracker",
-	description: "Track your CGPA and academic journey with AI-powered insights and offline-first capabilities",
+	title: "PAPT | Personalized Academic Progress Tracker",
+	description:
+		"Personalized Academic Progress Tracker (PAPT) helps students monitor CGPA, track coursework, and gain AI-powered academic insights.",
 	manifest: "/manifest.json",
 	appleWebApp: {
 		capable: true,
 		statusBarStyle: "default",
-		title: "AcademicTracker",
+		title: "PAPT",
 	},
 	formatDetection: {
 		telephone: false,

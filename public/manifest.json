@@ -1,7 +1,7 @@
 {
-  "name": "Academic Progress Tracker",
-  "short_name": "AcademicTracker",
-  "description": "Track your academic progress with AI-powered insights and offline-first capabilities",
+  "name": "Personalized Academic Progress Tracker (PAPT)",
+  "short_name": "PAPT",
+  "description": "PAPT helps students track CGPA, course progress, and personalized AI-powered academic insights.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

@@ -1,8 +1,8 @@
-# Academic Progress Tracker
+# Personalized Academic Progress Tracker (PAPT)
 
 ## Project Summary / Requirements
 
-This Academic Progress Tracker is designed for students to monitor their academic performance.  
+This Personalized Academic Progress Tracker (PAPT) is designed for students to monitor their academic performance.  
 Key requirements include:
 
 - User authentication for students only  
@@ -12,7 +12,7 @@ Key requirements include:
 - Optional notifications or reminders for upcoming tasks or deadlines
 
 ## Purpose / Objective
-The Academic Progress Tracker helps students monitor and organize their academic performance, keeping track of courses, grades, and overall progress.
+The Personalized Academic Progress Tracker (PAPT) helps students monitor and organize their academic performance, keeping track of courses, grades, and overall progress.
 
 ## Key Features
 - Track course enrollment and completion  
@@ -47,8 +47,8 @@ GEMINI_API_KEY=your_api_key_here  # Optional - for AI insights
 
 Get API key: [Google AI Studio](https://makersuite.google.com/app/apikey)
 
-### How to Contribute / Contact
-Contributions, feedback, and bug reports are welcome via pull requests or GitHub issues.
+### Support / Contact
+This is a proprietary internal project. For feedback, bug reports, or access requests, contact the project maintainers directly.
 
 ## Tech Stack
 
@@ -98,7 +98,7 @@ npm test          # Run tests
 
 ## License
 
-MIT
+UNLICENSED
 
 ---
 

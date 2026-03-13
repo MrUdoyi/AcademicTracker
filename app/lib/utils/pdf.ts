@@ -294,7 +294,7 @@ export function generateTranscriptPDF(
 		doc.text(`Page ${i} of ${totalPages}`, pageWidth / 2, pageHeight - 10, {
 			align: "center",
 		});
-		doc.text("Academic Progress Tracker", 14, pageHeight - 10);
+		doc.text("Personalized Academic Progress Tracker (PAPT)", 14, pageHeight - 10);
 	}
 
 	return doc;

@@ -1,4 +1,4 @@
-### TODO – Academic Progress Tracker (Group C)
+### TODO – Personalized Academic Progress Tracker (PAPT) (Group C)
 
 ## Phase 1 — Project Setup
 
